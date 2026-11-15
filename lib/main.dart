@@ -42,6 +42,7 @@ Future<void> main() async {
   final dm = DmService(app);
   NotificationService.onTap = (payload) => _openFromNotification(app, payload);
   runApp(FlinQApp(app: app, dm: dm));
+  WidgetsBinding.instance.addPostFrameCallback((_) => _showLastCrash());
   final launch = await NotificationService.launchPayload();
   if (launch != null && launch.isNotEmpty) {
     Future.delayed(const Duration(milliseconds: 1500), () => _openFromNotification(app, launch));
@@ -70,6 +71,58 @@ Future<void> _openFromNotification(AppState app, String notifId) async {
       final map = m.map((k, v) => MapEntry(k.toString(), v));
       app.openRequests.add(NotificationItem.fromMap(notifId, map));
     }
+  } catch (_) {}
+}
+
+/// Uygulama bir önceki açılışta çöktüyse raporu gösterir (kopyalanıp geliştiriciye iletilebilir).
+Future<void> _showLastCrash() async {
+  const ch = MethodChannel('flinq/crash');
+  String? report;
+  try {
+    report = await ch.invokeMethod<String>('get');
+  } catch (_) {}
+  if (report == null || report.trim().isEmpty) return;
+  await Future.delayed(const Duration(milliseconds: 1200));
+  final ctx = navigatorKey.currentContext;
+  if (ctx == null) return;
+  final text = report.length > 6000 ? report.substring(0, 6000) : report;
+  await showDialog(
+    context: ctx,
+    builder: (c) => AlertDialog(
+      title: const Text('Uygulama kapanmıştı 😕'),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Son açılışta bir hata oluştu. Raporu kopyalayıp geliştiriciye gönderirsen hemen düzeltilir.'),
+            const SizedBox(height: 10),
+            Container(
+              height: 180,
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(color: Colors.black12, borderRadius: BorderRadius.circular(8)),
+              child: SingleChildScrollView(
+                child: SelectableText(text, style: const TextStyle(fontSize: 11, fontFamily: 'monospace')),
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(c), child: const Text('Kapat')),
+        FilledButton(
+          onPressed: () {
+            Clipboard.setData(ClipboardData(text: text));
+            Navigator.pop(c);
+          },
+          child: const Text('Raporu kopyala'),
+        ),
+      ],
+    ),
+  );
+  try {
+    await ch.invokeMethod('clear');
   } catch (_) {}
 }
 

@@ -373,7 +373,13 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
     }
     return ConstrainedBox(
       constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.width * 1.35),
-      child: Image.memory(bytes, width: double.infinity, fit: BoxFit.cover, gaplessPlayback: true),
+      child: Image.memory(
+        bytes,
+        width: double.infinity,
+        fit: BoxFit.cover,
+        gaplessPlayback: true,
+        cacheWidth: (MediaQuery.of(context).size.width * MediaQuery.of(context).devicePixelRatio).round().clamp(320, 1440).toInt(),
+      ),
     );
   }
 }

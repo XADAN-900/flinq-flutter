@@ -103,36 +103,25 @@ class PostListScreen extends StatefulWidget {
 }
 
 class _PostListScreenState extends State<PostListScreen> {
-  late final List<Post> _posts = List.of(widget.posts);
-  final _keys = <String, GlobalKey>{};
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (widget.initialIndex <= 0 || widget.initialIndex >= _posts.length) return;
-      final ctx = _keys[_posts[widget.initialIndex].id]?.currentContext;
-      if (ctx != null) Scrollable.ensureVisible(ctx);
-    });
-  }
+  // Dokunulan gönderiden başlayarak tembel (lazy) liste: hepsi aynı anda çizilmez,
+  // böylece büyük profillerde bellek taşmaz.
+  late final List<Post> _posts = widget.posts.sublist(
+      widget.initialIndex.clamp(0, widget.posts.isEmpty ? 0 : widget.posts.length - 1).toInt());
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text(widget.title)),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            for (final p in _posts)
-              KeyedSubtree(
-                key: _keys.putIfAbsent(p.id, () => GlobalKey()),
-                child: PostCard(
-                  post: p,
-                  onDeleted: () => setState(() => _posts.removeWhere((x) => x.id == p.id)),
-                ),
-              ),
-          ],
-        ),
+      body: ListView.builder(
+        itemCount: _posts.length,
+        itemBuilder: (_, i) {
+          final p = _posts[i];
+          return PostCard(
+            key: ValueKey(p.id),
+            post: p,
+            onDeleted: () => setState(() => _posts.removeWhere((x) => x.id == p.id)),
+          );
+        },
       ),
     );
   }
