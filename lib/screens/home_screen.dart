@@ -73,7 +73,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final app = context.watch<AppState>();
     final pages = [
       FeedScreen(key: _feedKey),
-      const ExploreScreen(),
+      ExploreScreen(active: _tab == 1),
       const SizedBox.shrink(),
       ReelsScreen(active: _tab == 3),
       ProfileScreen(uid: app.uid ?? '', isTab: true),
@@ -163,7 +163,7 @@ class FeedScreenState extends State<FeedScreen> {
   bool _loading = true;
   bool _loadingMore = false;
   bool _followingOnly = false;
-  int _limit = 25;
+  int _limit = 12;
   bool _end = false;
 
   @override
@@ -189,7 +189,7 @@ class FeedScreenState extends State<FeedScreen> {
 
   Future<void> refresh() async {
     context.read<AppState>().invalidatePosts();
-    _limit = 25;
+    _limit = 12;
     _end = false;
     await _load();
   }
@@ -211,7 +211,7 @@ class FeedScreenState extends State<FeedScreen> {
   Future<void> _more() async {
     if (_loadingMore || _end || _loading) return;
     setState(() => _loadingMore = true);
-    _limit += 20;
+    _limit += 10;
     await _load();
     if (mounted) setState(() => _loadingMore = false);
   }

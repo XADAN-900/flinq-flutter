@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/firebase_config.dart';
@@ -284,9 +286,13 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
+  final Set<String> _warmTried = {};
+
   Future<void> warmUsers(Iterable<String> uids) async {
-    final missing = uids.where((u) => u.isNotEmpty && !_users.containsKey(u)).toSet();
+    // Bulunamayan kullanıcıyı tekrar tekrar istemeyelim (sonsuz yenileme döngüsü olmasın).
+    final missing = uids.where((u) => u.isNotEmpty && !_users.containsKey(u) && !_warmTried.contains(u)).toSet();
     if (missing.isEmpty) return;
+    _warmTried.addAll(missing);
     await Future.wait(missing.map((u) => userById(u)));
     notifyListeners();
   }
@@ -309,50 +315,123 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   // ------------------------------------------------------------------
   // Gönderiler
   // ------------------------------------------------------------------
-  // Realtime Database'de posts için "timestamp"/"uid" indeksi tanımlı değil; Android SDK
-  // indekssiz orderByChild sorgusunu reddeder. Bu yüzden gönderileri bir kez çekip
-  // (kısa süre önbellekleyip) istemci tarafında sıralıyoruz — web sürümü de aynısını yapıyor.
-  List<Post>? _postCache;
-  DateTime? _postCacheAt;
-  Future<List<Post>>? _postFetch;
+  // ------------------------------------------------------------------
+  // Gönderi yükleme — BELLEK DOSTU
+  // Gönderi anahtarları Date.now() ile üretildiği için anahtar sırası = zaman sırası.
+  // Böylece indeks gerekmeden "en yeni N gönderi" orderByKey().limitToLast(N) ile alınır.
+  // Tüm "posts" düğümünü (base64 videolarıyla birlikte) asla tek seferde indirmeyiz:
+  // bu, telefonda belleği taşırıp uygulamayı çökertiyordu.
+  // ------------------------------------------------------------------
+  List<String>? _keyCache;
+  DateTime? _keyCacheAt;
 
-  Future<List<Post>> _allPosts({bool force = false}) async {
-    final fresh = _postCacheAt != null && DateTime.now().difference(_postCacheAt!) < const Duration(seconds: 20);
-    if (!force && fresh && _postCache != null) return _postCache!;
-    final pending = _postFetch;
-    if (pending != null) return pending;
-    final f = () async {
-      final s = await db.ref('posts').get().timeout(const Duration(seconds: 30));
-      final list = <Post>[];
-      for (final c in s.children) {
-        final p = Post.fromMap(c.key!, asMap(c.value));
-        if (p.isValid && p.uid.isNotEmpty) list.add(p);
-      }
-      list.sort((a, b) => b.timestamp.compareTo(a.timestamp));
-      _postCache = list;
-      _postCacheAt = DateTime.now();
-      return list;
-    }();
-    _postFetch = f;
+  void invalidatePosts() => _keyCacheAt = null;
+
+  /// Tüm gönderi anahtarları (eskiden yeniye), sadece anahtarlar — içerik yok.
+  Future<List<String>> _postKeys() async {
+    final fresh = _keyCacheAt != null && DateTime.now().difference(_keyCacheAt!) < const Duration(seconds: 30);
+    if (fresh && _keyCache != null) return _keyCache!;
     try {
-      return await f;
-    } finally {
-      _postFetch = null;
-    }
+      final token = await user?.getIdToken();
+      final uri = Uri.parse(
+          '${FirebaseConfig.databaseUrl}/posts.json?shallow=true${token != null ? '&auth=$token' : ''}');
+      final res = await http.get(uri).timeout(const Duration(seconds: 20));
+      if (res.statusCode == 200) {
+        final j = jsonDecode(res.body);
+        final keys = j is Map ? j.keys.map((e) => e.toString()).toList() : <String>[];
+        keys.sort();
+        _keyCache = keys;
+        _keyCacheAt = DateTime.now();
+        return keys;
+      }
+    } catch (_) {}
+    return _keyCache ?? const [];
   }
 
-  void invalidatePosts() => _postCacheAt = null;
+  Future<List<Post>> _fetchPosts(Iterable<String> ids) async {
+    final out = <Post>[];
+    final list = ids.toList();
+    for (var i = 0; i < list.length; i += 8) {
+      final batch = list.sublist(i, i + 8 > list.length ? list.length : i + 8);
+      final got = await Future.wait(batch.map((id) async {
+        try {
+          final s = await db.ref('posts/$id').get();
+          if (!s.exists) return null;
+          final p = Post.fromMap(id, asMap(s.value));
+          return p.isValid && p.uid.isNotEmpty ? p : null;
+        } catch (_) {
+          return null;
+        }
+      }));
+      out.addAll(got.whereType<Post>());
+    }
+    out.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+    return out;
+  }
 
+  /// Gönderilerin tek bir küçük alanını (uid, type, caption) toplu okur.
+  Future<Map<String, String>> _postField(List<String> ids, String field) async {
+    final out = <String, String>{};
+    for (var i = 0; i < ids.length; i += 20) {
+      final batch = ids.sublist(i, i + 20 > ids.length ? ids.length : i + 20);
+      final got = await Future.wait(batch.map((id) async {
+        try {
+          final s = await db.ref('posts/$id/$field').get();
+          return MapEntry(id, asStr(s.value));
+        } catch (_) {
+          return MapEntry(id, '');
+        }
+      }));
+      out.addEntries(got);
+    }
+    return out;
+  }
+
+  /// En yeni [limit] gönderi.
   Future<List<Post>> loadFeed({int limit = 30, bool force = false}) async {
-    final all = await _allPosts(force: force);
-    final list = all.take(limit).toList();
+    final s = await db.ref('posts').orderByKey().limitToLast(limit).get().timeout(const Duration(seconds: 30));
+    final list = <Post>[];
+    for (final c in s.children) {
+      final p = Post.fromMap(c.key!, asMap(c.value));
+      if (p.isValid && p.uid.isNotEmpty) list.add(p);
+    }
+    list.sort((a, b) => b.timestamp.compareTo(a.timestamp));
     unawaited(warmUsers(list.map((p) => p.uid)));
     return list;
   }
 
+  /// Bir kullanıcının gönderileri (önce sadece "uid" alanları okunur).
   Future<List<Post>> loadUserPosts(String owner, {bool force = true}) async {
-    final all = await _allPosts(force: force);
-    return all.where((p) => p.uid == owner).toList();
+    final keys = await _postKeys();
+    if (keys.isEmpty) return const [];
+    final uids = await _postField(keys, 'uid');
+    final mine = keys.where((k) => uids[k] == owner).toList().reversed.take(120);
+    return _fetchPosts(mine);
+  }
+
+  /// En yeni video gönderileri (Reels).
+  Future<List<Post>> loadVideos({int scan = 300, int limit = 30}) async {
+    final keys = await _postKeys();
+    final recent = keys.reversed.take(scan).toList();
+    final types = await _postField(recent, 'type');
+    final ids = recent.where((k) => types[k] == 'video').take(limit);
+    return _fetchPosts(ids);
+  }
+
+  /// #etiket içeren gönderiler (önce sadece açıklamalar okunur).
+  Future<List<Post>> loadHashtag(String tag, {int scan = 500, int limit = 90}) async {
+    final keys = await _postKeys();
+    final recent = keys.reversed.take(scan).toList();
+    final caps = await _postField(recent, 'caption');
+    final re = RegExp('#${RegExp.escape(tag)}(?![\\wığüşöçİĞÜŞÖÇ])', caseSensitive: false);
+    final ids = recent.where((k) => re.hasMatch(caps[k] ?? '')).take(limit);
+    return _fetchPosts(ids);
+  }
+
+  /// Keşfet için etiket arama: son gönderilerin açıklamaları.
+  Future<Map<String, String>> recentCaptions({int scan = 400}) async {
+    final keys = await _postKeys();
+    return _postField(keys.reversed.take(scan).toList(), 'caption');
   }
 
   Future<Post?> loadPost(String id) async {

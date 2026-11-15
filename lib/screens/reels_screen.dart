@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:share_plus/share_plus.dart';
 
 import '../core/theme.dart';
 import '../core/utils.dart';
@@ -37,9 +36,9 @@ class _ReelsScreenState extends State<ReelsScreen> {
   }
 
   Future<void> _load() async {
-    final all = await context.read<AppState>().loadFeed(limit: 250);
+    final list = await context.read<AppState>().loadVideos();
     if (!mounted) return;
-    setState(() => _videos = all.where((p) => p.type == 'video' && p.url.isNotEmpty).toList());
+    setState(() => _videos = list.where((p) => p.url.isNotEmpty).toList());
   }
 
   @override

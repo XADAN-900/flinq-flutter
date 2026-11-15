@@ -139,7 +139,8 @@ class _PostListScreenState extends State<PostListScreen> {
 }
 
 class ExploreScreen extends StatefulWidget {
-  const ExploreScreen({super.key});
+  final bool active;
+  const ExploreScreen({super.key, this.active = true});
 
   @override
   State<ExploreScreen> createState() => _ExploreScreenState();
@@ -149,19 +150,35 @@ class _ExploreScreenState extends State<ExploreScreen> {
   final _q = TextEditingController();
   List<Post> _posts = [];
   List<FUser> _users = [];
+  Map<String, String> _captions = {};
   bool _loading = true;
   String _query = '';
+
+  bool _started = false;
 
   @override
   void initState() {
     super.initState();
+    if (widget.active) _start();
+  }
+
+  @override
+  void didUpdateWidget(covariant ExploreScreen old) {
+    super.didUpdateWidget(old);
+    if (widget.active) _start();
+  }
+
+  void _start() {
+    if (_started) return;
+    _started = true;
     _load();
   }
 
   Future<void> _load() async {
     final app = context.read<AppState>();
-    final posts = await app.loadFeed(limit: 150);
+    final posts = await app.loadFeed(limit: 45);
     final users = await app.allUsers(refresh: true);
+    final caps = await app.recentCaptions();
     if (!mounted) return;
     // Keşfet: medya gönderilerini beğeni + tazeliğe göre sırala.
     final now = DateTime.now().millisecondsSinceEpoch;
@@ -174,6 +191,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
     setState(() {
       _posts = posts;
       _users = users;
+      _captions = caps;
       _loading = false;
     });
   }
@@ -189,8 +207,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
     final tags = <String, int>{};
     if (searching) {
       final needle = tagMode ? q.substring(1) : q;
-      for (final p in _posts) {
-        for (final m in RegExp(r'#([\wığüşöçİĞÜŞÖÇ]+)').allMatches(p.caption)) {
+      for (final cap in _captions.values) {
+        for (final m in RegExp(r'#([\wığüşöçİĞÜŞÖÇ]+)').allMatches(cap)) {
           final t = m.group(1)!.toLowerCase();
           if (t.contains(needle)) tags[t] = (tags[t] ?? 0) + 1;
         }
@@ -281,10 +299,9 @@ class _HashtagScreenState extends State<HashtagScreen> {
   }
 
   Future<void> _load() async {
-    final all = await context.read<AppState>().loadFeed(limit: 400);
-    final re = RegExp('#${RegExp.escape(widget.tag)}(?![\\wığüşöçİĞÜŞÖÇ])', caseSensitive: false);
+    final list = await context.read<AppState>().loadHashtag(widget.tag);
     if (!mounted) return;
-    setState(() => _posts = all.where((p) => re.hasMatch(p.caption)).toList());
+    setState(() => _posts = list);
   }
 
   @override

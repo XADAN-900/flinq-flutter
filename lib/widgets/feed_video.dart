@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 
 import '../core/utils.dart';
+import 'video_thumb.dart';
 
 /// Akıştaki video: ekranda görünür olunca (otomatik oynatma açıksa) oynar,
 /// görünmez olunca durur. Aynı anda tek video çalar.
@@ -180,14 +181,18 @@ class FeedVideoState extends State<FeedVideo> {
             : AspectRatio(aspectRatio: ratio, child: VideoPlayer(c!)))
         : AspectRatio(
             aspectRatio: widget.fill ? 9 / 16 : 4 / 5,
-            child: Container(
-              color: Colors.black,
-              alignment: Alignment.center,
-              child: _failed
-                  ? const Icon(Icons.videocam_off_rounded, color: Colors.white54, size: 48)
-                  : _loading
-                      ? const CircularProgressIndicator(color: Colors.white)
-                      : const Icon(Icons.play_circle_fill_rounded, color: Colors.white70, size: 64),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                VideoThumb(dataUrl: widget.dataUrl),
+                Center(
+                  child: _failed
+                      ? const Icon(Icons.videocam_off_rounded, color: Colors.white54, size: 48)
+                      : _loading
+                          ? const CircularProgressIndicator(color: Colors.white)
+                          : const Icon(Icons.play_circle_fill_rounded, color: Colors.white70, size: 64),
+                ),
+              ],
             ),
           );
     return GestureDetector(

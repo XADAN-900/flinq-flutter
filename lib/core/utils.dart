@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -186,13 +187,18 @@ String mimeOfDataUrl(String? data, [String fallback = 'application/octet-stream'
   return data.substring(5, semi);
 }
 
-/// Çözülmüş medyayı bellekte tutar; aynı görsel/ses defalarca çözülmesin.
+/// Çözülmüş medyayı bellekte tutar; aynı görsel defalarca çözülmesin.
+/// Toplam boyut sınırlıdır (bellek taşıp uygulama çökmesin). Videolar belleğe
+/// alınmaz: arka planda çözülüp doğrudan geçici dosyaya yazılır.
 class MediaCache {
   MediaCache._();
   static final Map<int, Uint8List> _bytes = {};
   static final Map<int, String> _files = {};
+  static final Map<int, Future<String?>> _pendingFiles = {};
   static final List<int> _order = [];
-  static const int _max = 120;
+  static int _total = 0;
+  static const int _maxBytes = 40 * 1024 * 1024;
+  static const int _maxItemBytes = 4 * 1024 * 1024;
 
   static int _key(String data) => Object.hash(data.length, data.hashCode);
 
@@ -200,35 +206,62 @@ class MediaCache {
     if (data == null || data.isEmpty) return null;
     final k = _key(data);
     final hit = _bytes[k];
-    if (hit != null) return hit;
+    if (hit != null) {
+      _order.remove(k);
+      _order.add(k);
+      return hit;
+    }
     final b = decodeDataUrl(data);
     if (b == null) return null;
-    _bytes[k] = b;
-    _order.add(k);
-    if (_order.length > _max) {
-      final old = _order.removeAt(0);
-      _bytes.remove(old);
+    if (b.length <= _maxItemBytes) {
+      _bytes[k] = b;
+      _order.add(k);
+      _total += b.length;
+      while (_total > _maxBytes && _order.isNotEmpty) {
+        final old = _order.removeAt(0);
+        final ob = _bytes.remove(old);
+        if (ob != null) _total -= ob.length;
+      }
     }
     return b;
   }
 
-  /// Medyayı geçici bir dosyaya yazar (video/ses oynatıcılar dosya ister).
-  static Future<String?> file(String? data, {String? fileName, String? mime}) async {
-    if (data == null || data.isEmpty) return null;
+  /// Medyayı geçici bir dosyaya yazar (video oynatıcılar dosya ister).
+  static Future<String?> file(String? data, {String? fileName, String? mime}) {
+    if (data == null || data.isEmpty) return Future.value(null);
     final k = _key(data);
     final existing = _files[k];
-    if (existing != null && File(existing).existsSync()) return existing;
-    final b = bytes(data);
-    if (b == null) return null;
-    final dir = await getTemporaryDirectory();
-    final m = mime ?? mimeOfDataUrl(data);
-    var name = fileName ?? 'media_$k.${extFromMime(m)}';
-    name = name.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
-    final f = File('${dir.path}/fq_$k-$name');
-    await f.writeAsBytes(b, flush: true);
-    _files[k] = f.path;
-    return f.path;
+    if (existing != null && File(existing).existsSync()) return Future.value(existing);
+    return _pendingFiles.putIfAbsent(k, () async {
+      try {
+        final dir = await getTemporaryDirectory();
+        final m = mime ?? mimeOfDataUrl(data);
+        var name = fileName ?? 'media_$k.${extFromMime(m)}';
+        name = name.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
+        final path = '${dir.path}/fq_$k-$name';
+        if (File(path).existsSync() && File(path).lengthSync() > 0) {
+          _files[k] = path;
+          return path;
+        }
+        final ok = await compute(_decodeToFile, [data, path]);
+        if (!ok) return null;
+        _files[k] = path;
+        return path;
+      } catch (_) {
+        return null;
+      } finally {
+        _pendingFiles.remove(k);
+      }
+    });
   }
+}
+
+/// Ayrı isolate'te: base64 çöz ve dosyaya yaz (ana iş parçacığı donmasın).
+bool _decodeToFile(List<String> args) {
+  final b = decodeDataUrl(args[0]);
+  if (b == null) return false;
+  File(args[1]).writeAsBytesSync(b, flush: true);
+  return true;
 }
 
 String initialsOf(String name) {
