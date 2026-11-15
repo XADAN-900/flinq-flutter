@@ -15,6 +15,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../core/firebase_config.dart';
 import '../core/utils.dart';
 import '../models/models.dart';
+import 'native_bridge.dart';
 import 'notification_service.dart';
 
 class AppState extends ChangeNotifier with WidgetsBindingObserver {
@@ -41,6 +42,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   final Map<String, FUser> _users = {};
   bool foreground = true;
   bool connected = true;
+  Timer? _offlineTimer;
 
   final _subs = <StreamSubscription>[];
   bool _notifInit = false;
@@ -72,6 +74,14 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   void setPref(String key, bool v) {
     prefs.setBool(key, v);
     notifyListeners();
+    syncNative();
+  }
+
+  /// Arka plan servisine oturumu ve bildirim tercihlerini iletir (uygulama kapalıyken bildirim).
+  void syncNative() {
+    final u = uid;
+    if (u == null) return;
+    NativeBridge.setSession(uid: u, enabled: notifEnabled, sound: notifSound, preview: notifPreview);
   }
 
   // ------------------------------------------------------------------
@@ -144,10 +154,27 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       notifyListeners();
     }, onError: (_) {}));
     _subs.add(db.ref('.info/connected').onValue.listen((e) {
-      connected = e.snapshot.value == true;
-      notifyListeners();
+      final c = e.snapshot.value == true;
+      _offlineTimer?.cancel();
+      if (c) {
+        if (!connected) {
+          connected = true;
+          notifyListeners();
+        }
+      } else {
+        // Kısa kopmalar (uygulamaya dönüş, ağ geçişi, video yüklerken) uyarı göstermesin:
+        // sadece 8 saniyeden uzun süren kopmada "İnternet bağlantısı yok" çıkar.
+        _offlineTimer = Timer(const Duration(seconds: 8), () {
+          if (connected) {
+            connected = false;
+            notifyListeners();
+          }
+          db.goOnline();
+        });
+      }
     }));
     unawaited(NotificationService.registerToken(db, uid));
+    syncNative();
   }
 
   Future<void> _stop() async {
@@ -158,8 +185,9 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   void _alert(NotificationItem n) {
-    // Uygulama açıkken rozet yeterli; arka plandayken telefona bildirim düşer.
-    if (!notifEnabled || foreground) return;
+    // Uygulama açıkken rozet yeterli; arka plandayken telefona bildirim düşer
+    // (yerel servis çalışıyorsa bildirimi o gösterir).
+    if (!notifEnabled || foreground || NativeBridge.active) return;
     NotificationService.show(
       id: n.id,
       title: 'FlinQ',
@@ -266,6 +294,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<void> logout() async {
     final u = uid;
+    await NativeBridge.clearSession();
     if (u != null) await NotificationService.unregisterToken(db, u);
     await NotificationService.cancelAll();
     await auth.signOut();

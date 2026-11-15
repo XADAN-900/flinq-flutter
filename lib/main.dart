@@ -15,6 +15,7 @@ import 'models/models.dart';
 import 'screens/auth_screen.dart';
 import 'screens/home_screen.dart';
 import 'services/app_state.dart';
+import 'services/native_bridge.dart';
 import 'services/dm_service.dart';
 import 'services/notification_service.dart';
 import 'widgets/feed_video.dart';
@@ -22,7 +23,12 @@ import 'widgets/feed_video.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('tr_TR');
-  await Firebase.initializeApp(options: FirebaseConfig.options);
+  try {
+    await Firebase.initializeApp(options: FirebaseConfig.options);
+  } catch (_) {
+    // Arka plan servisi uygulamayı önceden başlatmış olabilir: var olanı kullan.
+    if (Firebase.apps.isEmpty) rethrow;
+  }
   try {
     final db = FirebaseDatabase.instanceFor(app: Firebase.app(), databaseURL: FirebaseConfig.databaseUrl);
     db.setPersistenceEnabled(true);
@@ -41,8 +47,14 @@ Future<void> main() async {
   final app = AppState(prefs);
   final dm = DmService(app);
   NotificationService.onTap = (payload) => _openFromNotification(app, payload);
+  NativeBridge.init();
+  NativeBridge.opens.stream.listen((id) => _openFromNotification(app, id));
   runApp(FlinQApp(app: app, dm: dm));
   Future.delayed(const Duration(seconds: 8), () => _uploadLastCrash(app));
+  final nativeLaunch = await NativeBridge.takeLaunch();
+  if (nativeLaunch != null && nativeLaunch.isNotEmpty) {
+    Future.delayed(const Duration(milliseconds: 1500), () => _openFromNotification(app, nativeLaunch));
+  }
   final launch = await NotificationService.launchPayload();
   if (launch != null && launch.isNotEmpty) {
     Future.delayed(const Duration(milliseconds: 1500), () => _openFromNotification(app, launch));

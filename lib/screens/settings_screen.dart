@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../core/theme.dart';
 import '../services/app_state.dart';
+import '../services/native_bridge.dart';
 import 'edit_profile_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
@@ -84,6 +85,18 @@ class SettingsScreen extends StatelessWidget {
             title: const Text('Kilit ekranında içerik'),
             value: app.notifPreview,
             onChanged: (v) => app.setPref('lockscreenPreview', v),
+          ),
+          ListTile(
+            leading: const Icon(Icons.battery_saver_outlined),
+            title: const Text('Arka planda çalışma'),
+            subtitle: const Text('Pil kısıtlamasını kaldır; uygulama kapalıyken de bildirim gelsin'),
+            onTap: () async {
+              if (await NativeBridge.isIgnoringBattery()) {
+                if (context.mounted) showSnack(context, 'Pil kısıtlaması zaten kapalı ✅');
+              } else {
+                await NativeBridge.requestIgnoreBattery();
+              }
+            },
           ),
           head('Hakkında'),
           const ListTile(

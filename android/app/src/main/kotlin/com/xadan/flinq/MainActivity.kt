@@ -1,6 +1,11 @@
 package com.xadan.flinq
 
+import android.content.Context
+import android.content.Intent
 import android.graphics.Bitmap
+import android.net.Uri
+import android.os.PowerManager
+import android.provider.Settings
 import android.media.MediaMetadataRetriever
 import android.os.Bundle
 import android.os.Handler
@@ -18,12 +23,52 @@ import java.util.concurrent.Executors
  * Video oynatıcı açmadığı için çok hafiftir (ızgaralarda onlarca video güvenle gösterilir).
  */
 class MainActivity : FlutterActivity() {
+    companion object {
+        /** Uygulama ekranda mı? (Ekrandayken arka plan servisi bildirim göstermez.) */
+        @JvmField
+        @Volatile
+        var visible: Boolean = false
+    }
+
     private val executor = Executors.newFixedThreadPool(2)
     private val mainHandler = Handler(Looper.getMainLooper())
+    private var nativeChannel: MethodChannel? = null
+    private var pendingOpen: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         installCrashSaver()
         super.onCreate(savedInstanceState)
+        pendingOpen = target(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        val t = target(intent) ?: return
+        try {
+            nativeChannel?.invokeMethod("open", t)
+        } catch (e: Exception) {
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        visible = true
+    }
+
+    override fun onPause() {
+        visible = false
+        super.onPause()
+    }
+
+    /** Yerel bildirimden gelindiyse açılacak hedef: bildirim kimliği ya da "dm:<uid>". */
+    private fun target(i: Intent?): String? {
+        val id = i?.getStringExtra(FqNotify.EXTRA_ID) ?: return null
+        return when (i.action) {
+            FqNotify.ACTION_OPEN_NOTIF -> id
+            FqNotify.ACTION_OPEN_DM -> "dm:$id"
+            else -> null
+        }
     }
 
     /** Yakalanmamış bir hata uygulamayı kapatırsa raporu dosyaya yazar; sonraki açılışta gösterilir. */
@@ -35,6 +80,55 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        val nc = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "flinq/native")
+        nativeChannel = nc
+        nc.setMethodCallHandler { call, result ->
+            try {
+                when (call.method) {
+                    "setSession" -> {
+                        FqSession.save(
+                            this,
+                            call.argument<String>("uid"),
+                            call.argument<Boolean>("enabled") ?: true,
+                            call.argument<Boolean>("sound") ?: true,
+                            call.argument<Boolean>("preview") ?: true
+                        )
+                        FqNotify.createChannels(this)
+                        FqService.ensureRunning(this)
+                        FqWatcher.get(this).refresh()
+                        result.success(true)
+                    }
+                    "clearSession" -> {
+                        FqSession.clear(this)
+                        FqService.stop(this)
+                        result.success(true)
+                    }
+                    "takeLaunch" -> {
+                        val p = pendingOpen
+                        pendingOpen = null
+                        result.success(p)
+                    }
+                    "isIgnoringBattery" -> {
+                        val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+                        result.success(pm.isIgnoringBatteryOptimizations(packageName))
+                    }
+                    "requestIgnoreBattery" -> {
+                        try {
+                            startActivity(
+                                Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
+                                    .setData(Uri.parse("package:$packageName"))
+                            )
+                        } catch (e: Exception) {
+                            startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+                        }
+                        result.success(true)
+                    }
+                    else -> result.notImplemented()
+                }
+            } catch (e: Exception) {
+                result.error("native", e.message, null)
+            }
+        }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "flinq/crash")
             .setMethodCallHandler { call, result ->
                 val f = File(filesDir, "last_crash.txt")

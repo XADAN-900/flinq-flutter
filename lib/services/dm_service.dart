@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 
 import '../core/utils.dart';
 import 'app_state.dart';
+import 'native_bridge.dart';
 import 'notification_service.dart';
 
 class DmMessage {
@@ -135,7 +136,7 @@ class DmService extends ChangeNotifier {
   }
 
   void _notify(DmThread t) {
-    if (app.foreground || !app.notifEnabled) return;
+    if (app.foreground || !app.notifEnabled || NativeBridge.active) return;
     final name = app.cachedUser(t.other)?.username ?? 'FlinQ';
     NotificationService.show(
       id: 'dm_${t.chatId}',
