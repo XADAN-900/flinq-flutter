@@ -977,12 +977,13 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   // ------------------------------------------------------------------
   // Hikayeler
   // ------------------------------------------------------------------
-  Future<String?> addStory(String url, {String caption = ''}) async {
+  Future<String?> addStory(String url, {String caption = '', String type = 'image'}) async {
     final u = uid;
     if (u == null) return 'Oturum yok.';
     try {
       await db.ref('stories/$u').push().set({
         'url': url,
+        'type': type,
         'caption': caption,
         'timestamp': ServerValue.timestamp,
       });

@@ -289,10 +289,12 @@ class _SharePostSheetState extends State<_SharePostSheet> {
                   leading: FAvatar(name: u?.username ?? '?', photo: u?.photo, size: 44),
                   title: UserName(u?.username ?? '…', verified: u?.verified ?? false),
                   trailing: SizedBox(
-                    width: 96,
+                    width: 112,
                     child: FilledButton(
                       style: FilledButton.styleFrom(
-                        minimumSize: const Size(0, 34),
+                        minimumSize: const Size(0, 36),
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
                         backgroundColor: sent ? Theme.of(context).dividerColor : FColors.accent,
                         foregroundColor: sent ? Theme.of(context).colorScheme.onSurface : Colors.white,
                       ),
@@ -306,7 +308,11 @@ class _SharePostSheetState extends State<_SharePostSheet> {
                                 if (mounted) setState(() => _sent.remove(id));
                               }
                             },
-                      child: Text(sent ? 'Gönderildi' : 'Gönder'),
+                      // Yazı her zaman tek satır kalsın (büyük yazı boyutunda küçülür, alta kaymaz).
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(sent ? 'Gönderildi' : 'Gönder', maxLines: 1, softWrap: false),
+                      ),
                     ),
                   ),
                 );

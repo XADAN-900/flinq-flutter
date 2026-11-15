@@ -1,18 +1,26 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+import 'package:video_player/video_player.dart';
 
 import '../core/theme.dart';
 import '../core/utils.dart';
 import '../models/models.dart';
 import '../services/app_state.dart';
 import '../widgets/common.dart';
+import '../widgets/video_thumb.dart';
 import 'profile_screen.dart';
 
+enum _StoryPick { galleryPhoto, cameraPhoto, galleryVideo, cameraVideo }
+
+/// Hikaye videosu en fazla 30 sn ve 12 MB (veritabanında saklandığı için).
+const int _maxStoryVideoBytes = 12 * 1024 * 1024;
+
 Future<void> addStoryFlow(BuildContext context) async {
-  final source = await showModalBottomSheet<ImageSource>(
+  final pick = await showModalBottomSheet<_StoryPick>(
     context: context,
     showDragHandle: true,
     builder: (ctx) => SafeArea(
@@ -23,22 +31,62 @@ Future<void> addStoryFlow(BuildContext context) async {
         ),
         ListTile(
           leading: const Icon(Icons.photo_library_outlined),
-          title: const Text('Galeriden seç'),
-          onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+          title: const Text('Galeriden fotoğraf'),
+          onTap: () => Navigator.pop(ctx, _StoryPick.galleryPhoto),
+        ),
+        ListTile(
+          leading: const Icon(Icons.video_library_outlined),
+          title: const Text('Galeriden video'),
+          subtitle: const Text('En fazla 30 saniye'),
+          onTap: () => Navigator.pop(ctx, _StoryPick.galleryVideo),
         ),
         ListTile(
           leading: const Icon(Icons.photo_camera_outlined),
           title: const Text('Fotoğraf çek'),
-          onTap: () => Navigator.pop(ctx, ImageSource.camera),
+          onTap: () => Navigator.pop(ctx, _StoryPick.cameraPhoto),
+        ),
+        ListTile(
+          leading: const Icon(Icons.videocam_outlined),
+          title: const Text('Video çek'),
+          subtitle: const Text('En fazla 30 saniye'),
+          onTap: () => Navigator.pop(ctx, _StoryPick.cameraVideo),
         ),
       ]),
     ),
   );
-  if (source == null || !context.mounted) return;
-  final x = await ImagePicker().pickImage(source: source, maxWidth: 900, maxHeight: 1600, imageQuality: 72);
+  if (pick == null || !context.mounted) return;
+  final isVideo = pick == _StoryPick.galleryVideo || pick == _StoryPick.cameraVideo;
+  final source = (pick == _StoryPick.cameraPhoto || pick == _StoryPick.cameraVideo)
+      ? ImageSource.camera
+      : ImageSource.gallery;
+  final picker = ImagePicker();
+  final XFile? x = isVideo
+      ? await picker.pickVideo(source: source, maxDuration: const Duration(seconds: 30))
+      : await picker.pickImage(source: source, maxWidth: 900, maxHeight: 1600, imageQuality: 72);
   if (x == null || !context.mounted) return;
+  if (isVideo && await x.length() > _maxStoryVideoBytes) {
+    if (context.mounted) {
+      showSnack(context, 'Video çok büyük (en fazla 12 MB). Daha kısa bir video seç.', error: true);
+    }
+    return;
+  }
   final bytes = await x.readAsBytes();
   if (!context.mounted) return;
+  var mime = 'image/jpeg';
+  if (isVideo) {
+    final mt = x.mimeType;
+    final name = x.name.toLowerCase();
+    mime = (mt != null && mt.startsWith('video/'))
+        ? mt
+        : name.endsWith('.webm')
+            ? 'video/webm'
+            : name.endsWith('.3gp')
+                ? 'video/3gpp'
+                : name.endsWith('.mov')
+                    ? 'video/quicktime'
+                    : 'video/mp4';
+  }
+  final dataUrl = toDataUrl(bytes, mime);
   final caption = await showDialog<String>(
     context: context,
     builder: (ctx) {
@@ -50,7 +98,13 @@ Future<void> addStoryFlow(BuildContext context) async {
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(14),
-              child: Image.memory(bytes, height: 300, fit: BoxFit.cover),
+              child: isVideo
+                  ? SizedBox(
+                      height: 300,
+                      width: double.infinity,
+                      child: VideoThumb(dataUrl: dataUrl, showPlayIcon: true),
+                    )
+                  : Image.memory(bytes, height: 300, fit: BoxFit.cover),
             ),
             const SizedBox(height: 10),
             TextField(controller: c, decoration: const InputDecoration(hintText: 'Bir şey yaz… (isteğe bağlı)')),
@@ -64,8 +118,94 @@ Future<void> addStoryFlow(BuildContext context) async {
     },
   );
   if (caption == null || !context.mounted) return;
-  final err = await context.read<AppState>().addStory(toDataUrl(bytes, 'image/jpeg'), caption: caption);
+  if (isVideo) showSnack(context, 'Hikaye yükleniyor…');
+  final err = await context
+      .read<AppState>()
+      .addStory(dataUrl, caption: caption, type: isVideo ? 'video' : 'image');
   if (context.mounted) showSnack(context, err ?? 'Hikayen paylaşıldı ✨', error: err != null);
+}
+
+/// Hikaye videosu: hazır olunca süresini bildirir, tam ekran oynatır.
+class _StoryVideo extends StatefulWidget {
+  final String dataUrl;
+  final bool paused;
+  final ValueChanged<Duration> onReady;
+  final VoidCallback onError;
+  const _StoryVideo({super.key, required this.dataUrl, required this.paused, required this.onReady, required this.onError});
+
+  @override
+  State<_StoryVideo> createState() => _StoryVideoState();
+}
+
+class _StoryVideoState extends State<_StoryVideo> {
+  VideoPlayerController? _c;
+  bool _failed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _init();
+  }
+
+  Future<void> _init() async {
+    final path = await MediaCache.file(widget.dataUrl);
+    if (!mounted) return;
+    if (path == null) {
+      setState(() => _failed = true);
+      widget.onError();
+      return;
+    }
+    final c = VideoPlayerController.file(File(path));
+    try {
+      await c.initialize();
+    } catch (_) {
+      await c.dispose();
+      if (mounted) {
+        setState(() => _failed = true);
+        widget.onError();
+      }
+      return;
+    }
+    if (!mounted) {
+      await c.dispose();
+      return;
+    }
+    await c.setVolume(1);
+    setState(() => _c = c);
+    widget.onReady(c.value.duration);
+    if (!widget.paused) await c.play();
+  }
+
+  @override
+  void didUpdateWidget(covariant _StoryVideo old) {
+    super.didUpdateWidget(old);
+    final c = _c;
+    if (c == null || old.paused == widget.paused) return;
+    widget.paused ? c.pause() : c.play();
+  }
+
+  @override
+  void dispose() {
+    _c?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = _c;
+    if (_failed) {
+      return const Center(child: Text('Video açılamadı', style: TextStyle(color: Colors.white70)));
+    }
+    if (c == null) {
+      return const Center(child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.4));
+    }
+    return Center(
+      child: AspectRatio(
+        aspectRatio: c.value.aspectRatio == 0 ? 9 / 16 : c.value.aspectRatio,
+        child: VideoPlayer(c),
+      ),
+    );
+  }
 }
 
 class StoryViewer extends StatefulWidget {
@@ -80,6 +220,8 @@ class StoryViewer extends StatefulWidget {
 class _StoryViewerState extends State<StoryViewer> with SingleTickerProviderStateMixin {
   late int _owner = widget.startIndex < 0 ? 0 : widget.startIndex;
   int _index = 0;
+  bool _paused = false;
+  String? _videoId; // hazır olması beklenen hikaye videosu
   late final AnimationController _progress =
       AnimationController(vsync: this, duration: const Duration(seconds: 6))
         ..addStatusListener((s) {
@@ -112,8 +254,18 @@ class _StoryViewerState extends State<StoryViewer> with SingleTickerProviderStat
       _index = firstUnseen < 0 ? 0 : firstUnseen;
     }
     if (_index >= list.length) _index = list.length - 1;
-    context.read<AppState>().markStorySeen(list[_index]);
-    _progress.forward(from: 0);
+    final s = list[_index];
+    context.read<AppState>().markStorySeen(s);
+    if (s.isVideo) {
+      // Video hazır olunca süresi kadar ilerler.
+      _videoId = s.id;
+      _progress.stop();
+      _progress.value = 0;
+    } else {
+      _videoId = null;
+      _progress.duration = const Duration(seconds: 6);
+      _progress.forward(from: 0);
+    }
     setState(() {});
   }
 
@@ -154,7 +306,7 @@ class _StoryViewerState extends State<StoryViewer> with SingleTickerProviderStat
     final i = _index.clamp(0, list.length - 1).toInt();
     final s = list[i];
     final u = app.cachedUser(s.uid);
-    final bytes = MediaCache.bytes(s.url);
+    final bytes = s.isVideo ? null : MediaCache.bytes(s.url);
     final mine = s.uid == app.uid;
     return Scaffold(
       backgroundColor: Colors.black,
@@ -163,15 +315,39 @@ class _StoryViewerState extends State<StoryViewer> with SingleTickerProviderStat
           final w = MediaQuery.of(context).size.width;
           d.globalPosition.dx < w / 3 ? _prev() : _next();
         },
-        onLongPressStart: (_) => _progress.stop(),
-        onLongPressEnd: (_) => _progress.forward(),
+        onLongPressStart: (_) {
+          _progress.stop();
+          setState(() => _paused = true);
+        },
+        onLongPressEnd: (_) {
+          setState(() => _paused = false);
+          if (_videoId == null || _progress.value > 0) _progress.forward();
+        },
         onVerticalDragEnd: (d) {
           if ((d.primaryVelocity ?? 0) > 300) Navigator.of(context).maybePop();
         },
         child: Stack(
           fit: StackFit.expand,
           children: [
-            if (bytes != null) Image.memory(bytes, fit: BoxFit.contain, gaplessPlayback: true),
+            if (s.isVideo)
+              _StoryVideo(
+                key: ValueKey('sv_${s.id}'),
+                dataUrl: s.url,
+                paused: _paused,
+                onReady: (d) {
+                  if (!mounted || _videoId != s.id) return;
+                  final ms = d.inMilliseconds.clamp(1000, 60000).toInt();
+                  _progress.duration = Duration(milliseconds: ms);
+                  if (!_paused) _progress.forward(from: 0);
+                },
+                onError: () {
+                  if (!mounted || _videoId != s.id) return;
+                  _progress.duration = const Duration(seconds: 3);
+                  _progress.forward(from: 0);
+                },
+              )
+            else if (bytes != null)
+              Image.memory(bytes, fit: BoxFit.contain, gaplessPlayback: true),
             const DecoratedBox(
               decoration: BoxDecoration(
                 gradient: LinearGradient(

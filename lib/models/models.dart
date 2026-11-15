@@ -180,11 +180,15 @@ class Story {
   final String caption;
   final int timestamp;
   final Set<String> viewers;
+  final String type; // image | video
+
+  bool get isVideo => type == 'video' || url.startsWith('data:video');
 
   const Story({
     required this.id,
     required this.uid,
     required this.url,
+    this.type = 'image',
     this.caption = '',
     this.timestamp = 0,
     this.viewers = const {},
@@ -194,6 +198,7 @@ class Story {
         id: id,
         uid: uid,
         url: asStr(m['url']),
+        type: asStr(m['type'], 'image'),
         caption: asStr(m['caption']),
         timestamp: asInt(m['timestamp']),
         viewers: asMap(m['viewers']).keys.toSet(),
