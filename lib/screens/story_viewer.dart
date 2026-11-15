@@ -88,6 +88,7 @@ Future<void> addStoryFlow(BuildContext context) async {
     return;
   }
   final dataUrl = toDataUrl(bytes, mime);
+  final filePath = x.path;
   final caption = await showDialog<String>(
     context: context,
     builder: (ctx) {
@@ -103,7 +104,7 @@ Future<void> addStoryFlow(BuildContext context) async {
                   ? SizedBox(
                       height: 300,
                       width: double.infinity,
-                      child: _PreviewVideo(path: x.path),
+                      child: _PreviewVideo(path: filePath),
                     )
                   : Image.memory(bytes, height: 300, fit: BoxFit.cover),
             ),
