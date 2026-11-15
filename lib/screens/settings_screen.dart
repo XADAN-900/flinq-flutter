@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 
 import '../core/theme.dart';
 import '../services/app_state.dart';
-import '../services/notification_service.dart';
 import 'edit_profile_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
@@ -85,19 +84,6 @@ class SettingsScreen extends StatelessWidget {
             title: const Text('Kilit ekranında içerik'),
             value: app.notifPreview,
             onChanged: (v) => app.setPref('lockscreenPreview', v),
-          ),
-          ListTile(
-            leading: const Icon(Icons.notification_add_outlined),
-            title: const Text('Bildirimi dene'),
-            onTap: () async {
-              await NotificationService.requestPermission();
-              await NotificationService.show(
-                id: 'test',
-                title: 'FlinQ',
-                body: 'Bildirimler çalışıyor 🎉',
-                silent: !app.notifSound,
-              );
-            },
           ),
           head('Hakkında'),
           const ListTile(
