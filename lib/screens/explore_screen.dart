@@ -252,7 +252,10 @@ class _ExploreScreenState extends State<ExploreScreen> {
                   ],
                 )
               : RefreshIndicator(
-                  onRefresh: _load,
+                  onRefresh: () {
+                    context.read<AppState>().invalidatePosts();
+                    return _load();
+                  },
                   child: _posts.isEmpty
                       ? ListView(children: const [
                           SizedBox(height: 80),

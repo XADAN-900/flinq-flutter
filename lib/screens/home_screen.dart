@@ -182,6 +182,7 @@ class FeedScreenState extends State<FeedScreen> {
   }
 
   Future<void> refresh() async {
+    context.read<AppState>().invalidatePosts();
     _limit = 25;
     _end = false;
     await _load();

@@ -191,7 +191,14 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
-  Future<String?> register(String username, String email, String password) async {
+  Future<bool> isUsernameTaken(String username) async {
+    final s = await db.ref('usernames/${username.trim().toLowerCase()}').get();
+    if (!s.exists) return false;
+    return asStr(asMap(s.value)['uid']) != uid;
+  }
+
+  Future<String?> register(String username, String email, String password,
+      {String? photoDataUrl, String bio = ''}) async {
     username = username.trim();
     email = email.trim();
     final uErr = usernameError(username);
@@ -208,8 +215,9 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
         'email': u.email ?? email,
         'username': username,
         'initials': username.substring(0, 1).toUpperCase(),
-        'profilePhotoUrl': '',
+        'profilePhotoUrl': photoDataUrl ?? '',
         'lastUsernameChange': 0,
+        if (bio.trim().isNotEmpty) 'bio': bio.trim(),
       });
       await db.ref('usernames/${username.toLowerCase()}').set({'uid': u.uid, 'username': username});
       return null;
@@ -301,23 +309,50 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   // ------------------------------------------------------------------
   // Gönderiler
   // ------------------------------------------------------------------
-  Future<List<Post>> loadFeed({int limit = 30}) async {
-    final s = await db.ref('posts').orderByChild('timestamp').limitToLast(limit).get();
-    final list = <Post>[];
-    for (final c in s.children) {
-      final p = Post.fromMap(c.key!, asMap(c.value));
-      if (p.isValid && p.uid.isNotEmpty) list.add(p);
+  // Realtime Database'de posts için "timestamp"/"uid" indeksi tanımlı değil; Android SDK
+  // indekssiz orderByChild sorgusunu reddeder. Bu yüzden gönderileri bir kez çekip
+  // (kısa süre önbellekleyip) istemci tarafında sıralıyoruz — web sürümü de aynısını yapıyor.
+  List<Post>? _postCache;
+  DateTime? _postCacheAt;
+  Future<List<Post>>? _postFetch;
+
+  Future<List<Post>> _allPosts({bool force = false}) async {
+    final fresh = _postCacheAt != null && DateTime.now().difference(_postCacheAt!) < const Duration(seconds: 20);
+    if (!force && fresh && _postCache != null) return _postCache!;
+    final pending = _postFetch;
+    if (pending != null) return pending;
+    final f = () async {
+      final s = await db.ref('posts').get().timeout(const Duration(seconds: 30));
+      final list = <Post>[];
+      for (final c in s.children) {
+        final p = Post.fromMap(c.key!, asMap(c.value));
+        if (p.isValid && p.uid.isNotEmpty) list.add(p);
+      }
+      list.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+      _postCache = list;
+      _postCacheAt = DateTime.now();
+      return list;
+    }();
+    _postFetch = f;
+    try {
+      return await f;
+    } finally {
+      _postFetch = null;
     }
-    list.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+  }
+
+  void invalidatePosts() => _postCacheAt = null;
+
+  Future<List<Post>> loadFeed({int limit = 30, bool force = false}) async {
+    final all = await _allPosts(force: force);
+    final list = all.take(limit).toList();
     unawaited(warmUsers(list.map((p) => p.uid)));
     return list;
   }
 
-  Future<List<Post>> loadUserPosts(String owner) async {
-    final s = await db.ref('posts').orderByChild('uid').equalTo(owner).get();
-    final list = s.children.map((c) => Post.fromMap(c.key!, asMap(c.value))).where((p) => p.isValid).toList()
-      ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
-    return list;
+  Future<List<Post>> loadUserPosts(String owner, {bool force = true}) async {
+    final all = await _allPosts(force: force);
+    return all.where((p) => p.uid == owner).toList();
   }
 
   Future<Post?> loadPost(String id) async {
@@ -342,13 +377,17 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       'likes': 0,
       'timestamp': ServerValue.timestamp,
     });
+    invalidatePosts();
     await notifyMentions(caption, postId: id);
   }
 
   Future<void> editPost(String id, String caption) =>
       db.ref('posts/$id').update({'caption': caption, 'edited': true});
 
-  Future<void> deletePost(String id) => db.ref('posts/$id').remove();
+  Future<void> deletePost(String id) async {
+    await db.ref('posts/$id').remove();
+    invalidatePosts();
+  }
 
   /// Beğeniyi tersine çevirir, yeni durumu döndürür.
   Future<bool> toggleLike(Post p) async {
