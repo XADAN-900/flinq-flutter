@@ -145,7 +145,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
         final list = asMap(v)
             .entries
             .map((x) => Story.fromMap(x.key, owner, asMap(x.value)))
-            .where((s) => !s.expired && s.url.isNotEmpty)
+            .where((s) => !s.expired && (s.url.isNotEmpty || s.media))
             .toList()
           ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
         if (list.isNotEmpty) out[owner] = list;
@@ -153,7 +153,10 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
         if (owner == uid) {
           asMap(v).forEach((sid, sv) {
             final s = Story.fromMap(sid, owner, asMap(sv));
-            if (s.expired) db.ref('stories/$owner/$sid').remove().catchError((_) {});
+            if (s.expired) {
+              db.ref('stories/$owner/$sid').remove().catchError((_) {});
+              if (s.media) db.ref('storyMedia/$owner/$sid').remove().catchError((_) {});
+            }
           });
         }
       });
@@ -162,6 +165,22 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     }, onError: (_) {}));
     unawaited(NotificationService.registerToken(db, uid));
     syncNative();
+    unawaited(_securityUpkeep(uid));
+  }
+
+  /// Her girişte: kullanıcı adıyla giriş için e-posta indeksini tamamla, kilometre taşlarını kontrol et.
+  Future<void> _securityUpkeep(String uid) async {
+    await Future.delayed(const Duration(seconds: 4));
+    try {
+      final s = await db.ref('users/$uid/username').get();
+      final name = asStr(s.value).toLowerCase();
+      final email = user?.email;
+      if (name.isNotEmpty && email != null) {
+        final cur = await db.ref('emails/$name').get();
+        if (asStr(cur.value) != email) await db.ref('emails/$name').set(email);
+      }
+    } catch (_) {}
+    await _milestones(uid);
   }
 
   Future<void> _stop() async {
@@ -195,12 +214,23 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     if (email.isEmpty || password.isEmpty) return 'E-posta/kullanıcı adı ve şifre gir.';
     try {
       if (!email.contains('@')) {
-        final s = await db.ref('usernames/${email.toLowerCase()}').get();
-        final u = asStr(asMap(s.value)['uid']);
-        if (u.isEmpty) return 'Bu kullanıcı adı bulunamadı.';
-        final e = await db.ref('users/$u/email').get();
-        email = asStr(e.value);
-        if (email.isEmpty) return 'Bu hesap için e-posta bulunamadı. E-postanla giriş yap.';
+        final name = email.toLowerCase();
+        // Kullanıcı adıyla giriş: e-posta, sadece tek tek okunabilen "emails" indeksinden gelir
+        // (kullanıcı listesi ve e-postalar herkese açık değil).
+        var found = '';
+        try {
+          found = asStr((await db.ref('emails/$name').get()).value);
+        } catch (_) {}
+        if (found.isEmpty) {
+          final s = await db.ref('usernames/$name').get();
+          final u = asStr(asMap(s.value)['uid']);
+          if (u.isEmpty) return 'Bu kullanıcı adı bulunamadı.';
+          try {
+            found = asStr((await db.ref('users/$u/email').get()).value);
+          } catch (_) {}
+        }
+        email = found;
+        if (email.isEmpty) return 'Bu hesap için kullanıcı adıyla giriş henüz hazır değil. Bir kez e-postanla giriş yap.';
       }
       await auth.signInWithEmailAndPassword(email: email, password: password);
       return null;
@@ -240,6 +270,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
         if (bio.trim().isNotEmpty) 'bio': bio.trim(),
       });
       await db.ref('usernames/${username.toLowerCase()}').set({'uid': u.uid, 'username': username});
+      await db.ref('emails/${username.toLowerCase()}').set(u.email ?? email).catchError((_) {});
       return null;
     } on FirebaseAuthException catch (e) {
       return _authError(e);
@@ -819,10 +850,12 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       'message': '<strong>${escapeHtml(username)}</strong> seni takip etmeye başladı',
       'from': u,
     });
-    await _milestones(target);
   }
 
+  /// Takipçi kilometre taşları: hesabın SAHİBİ kendi uygulamasında kontrol eder
+  /// (veritabanı kuralları başkasının profilini değiştirmeye izin vermez).
   Future<void> _milestones(String target) async {
+    if (target != uid) return;
     try {
       final f = await db.ref('followers/$target').get();
       final n = asMap(f.value).length;
@@ -957,8 +990,12 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       'users/$u/initials': next.substring(0, 1).toUpperCase(),
       'users/$u/lastUsernameChange': ServerValue.timestamp,
       'usernames/${next.toLowerCase()}': {'uid': u, 'username': next},
+      if (user?.email != null) 'emails/${next.toLowerCase()}': user!.email,
     };
-    if (old.toLowerCase() != next.toLowerCase()) up['usernames/${old.toLowerCase()}'] = null;
+    if (old.toLowerCase() != next.toLowerCase()) {
+      up['usernames/${old.toLowerCase()}'] = null;
+      up['emails/${old.toLowerCase()}'] = null;
+    }
     await db.ref().update(up);
     await user?.updateDisplayName(next);
     return null;
@@ -981,8 +1018,15 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     final u = uid;
     if (u == null) return 'Oturum yok.';
     try {
-      await db.ref('stories/$u').push().set({
-        'url': url,
+      final ref = db.ref('stories/$u').push();
+      final separate = type == 'video';
+      if (separate) {
+        // Video ayrı düğüme: hikaye listesi (herkesin uygulamasında) şişmesin.
+        await db.ref('storyMedia/$u/${ref.key}').set(url);
+      }
+      await ref.set({
+        if (!separate) 'url': url,
+        if (separate) 'media': true,
         'type': type,
         'caption': caption,
         'timestamp': ServerValue.timestamp,
@@ -999,7 +1043,27 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     await db.ref('stories/${s.uid}/${s.id}/viewers/$u').set(true).catchError((_) {});
   }
 
-  Future<void> deleteStory(Story s) => db.ref('stories/${s.uid}/${s.id}').remove();
+  Future<void> deleteStory(Story s) async {
+    await db.ref('stories/${s.uid}/${s.id}').remove();
+    if (s.media) await db.ref('storyMedia/${s.uid}/${s.id}').remove().catchError((_) {});
+  }
+
+  final Map<String, Future<String?>> _storyMedia = {};
+
+  /// Hikaye videosunun verisi (gerektiğinde indirilir, en fazla 4 tanesi bellekte).
+  Future<String?> storyMediaUrl(Story s) {
+    if (s.url.isNotEmpty) return Future.value(s.url);
+    final k = '${s.uid}/${s.id}';
+    final hit = _storyMedia[k];
+    if (hit != null) return hit;
+    final f = db.ref('storyMedia/$k').get().then((v) => asStrOrNull(v.value)).catchError((_) => null);
+    if (_storyMedia.length >= 4) _storyMedia.remove(_storyMedia.keys.first);
+    _storyMedia[k] = f;
+    f.then((v) {
+      if (v == null) _storyMedia.remove(k);
+    });
+    return f;
+  }
 
   bool hasUnseenStory(String owner) {
     final list = stories[owner];

@@ -12,15 +12,14 @@ import '../models/models.dart';
 import '../services/app_state.dart';
 import '../widgets/common.dart';
 import '../widgets/video_thumb.dart';
+import 'story_camera_screen.dart';
 import 'profile_screen.dart';
 
-enum _StoryPick { galleryPhoto, cameraPhoto, galleryVideo, cameraVideo }
-
-/// Hikaye videosu en fazla 30 sn ve 12 MB (veritabanında saklandığı için).
-const int _maxStoryVideoBytes = 12 * 1024 * 1024;
+/// Hikaye videosu en fazla 30 sn ve 15 MB (veritabanında saklandığı için).
+const int _maxStoryVideoBytes = 15 * 1024 * 1024;
 
 Future<void> addStoryFlow(BuildContext context) async {
-  final pick = await showModalBottomSheet<_StoryPick>(
+  final fromCamera = await showModalBottomSheet<bool>(
     context: context,
     showDragHandle: true,
     builder: (ctx) => SafeArea(
@@ -30,43 +29,42 @@ Future<void> addStoryFlow(BuildContext context) async {
           child: Text('Hikaye ekle', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
         ),
         ListTile(
-          leading: const Icon(Icons.photo_library_outlined),
-          title: const Text('Galeriden fotoğraf'),
-          onTap: () => Navigator.pop(ctx, _StoryPick.galleryPhoto),
-        ),
-        ListTile(
-          leading: const Icon(Icons.video_library_outlined),
-          title: const Text('Galeriden video'),
-          subtitle: const Text('En fazla 30 saniye'),
-          onTap: () => Navigator.pop(ctx, _StoryPick.galleryVideo),
-        ),
-        ListTile(
           leading: const Icon(Icons.photo_camera_outlined),
-          title: const Text('Fotoğraf çek'),
-          onTap: () => Navigator.pop(ctx, _StoryPick.cameraPhoto),
+          title: const Text('Kamera'),
+          subtitle: const Text('Fotoğraf için dokun, video için basılı tut'),
+          onTap: () => Navigator.pop(ctx, true),
         ),
         ListTile(
-          leading: const Icon(Icons.videocam_outlined),
-          title: const Text('Video çek'),
-          subtitle: const Text('En fazla 30 saniye'),
-          onTap: () => Navigator.pop(ctx, _StoryPick.cameraVideo),
+          leading: const Icon(Icons.photo_library_outlined),
+          title: const Text('Galeri'),
+          subtitle: const Text('Fotoğraflar ve videolar'),
+          onTap: () => Navigator.pop(ctx, false),
         ),
       ]),
     ),
   );
-  if (pick == null || !context.mounted) return;
-  final isVideo = pick == _StoryPick.galleryVideo || pick == _StoryPick.cameraVideo;
-  final source = (pick == _StoryPick.cameraPhoto || pick == _StoryPick.cameraVideo)
-      ? ImageSource.camera
-      : ImageSource.gallery;
-  final picker = ImagePicker();
-  final XFile? x = isVideo
-      ? await picker.pickVideo(source: source, maxDuration: const Duration(seconds: 30))
-      : await picker.pickImage(source: source, maxWidth: 900, maxHeight: 1600, imageQuality: 72);
-  if (x == null || !context.mounted) return;
+  if (fromCamera == null || !context.mounted) return;
+  XFile? x;
+  bool isVideo;
+  if (fromCamera) {
+    final r = await Navigator.of(context).push<(XFile, bool)>(
+      MaterialPageRoute(fullscreenDialog: true, builder: (_) => const StoryCameraScreen()),
+    );
+    if (r == null) return;
+    x = r.$1;
+    isVideo = r.$2;
+  } else {
+    x = await ImagePicker().pickMedia(maxWidth: 1080, maxHeight: 1920, imageQuality: 80);
+    if (x == null) return;
+    final mt = x.mimeType ?? '';
+    final n = x.name.toLowerCase();
+    isVideo = mt.startsWith('video/') ||
+        const ['.mp4', '.mov', '.webm', '.3gp', '.mkv', '.m4v'].any(n.endsWith);
+  }
+  if (!context.mounted) return;
   if (isVideo && await x.length() > _maxStoryVideoBytes) {
     if (context.mounted) {
-      showSnack(context, 'Video çok büyük (en fazla 12 MB). Daha kısa bir video seç.', error: true);
+      showSnack(context, 'Video çok büyük (en fazla 15 MB). Daha kısa bir video seç.', error: true);
     }
     return;
   }
@@ -85,6 +83,10 @@ Future<void> addStoryFlow(BuildContext context) async {
                 : name.endsWith('.mov')
                     ? 'video/quicktime'
                     : 'video/mp4';
+  }
+  if (!isVideo && bytes.length > 3 * 1024 * 1024) {
+    if (context.mounted) showSnack(context, 'Fotoğraf çok büyük.', error: true);
+    return;
   }
   final dataUrl = toDataUrl(bytes, mime);
   final caption = await showDialog<String>(
@@ -127,11 +129,11 @@ Future<void> addStoryFlow(BuildContext context) async {
 
 /// Hikaye videosu: hazır olunca süresini bildirir, tam ekran oynatır.
 class _StoryVideo extends StatefulWidget {
-  final String dataUrl;
+  final Future<String?> source;
   final bool paused;
   final ValueChanged<Duration> onReady;
   final VoidCallback onError;
-  const _StoryVideo({super.key, required this.dataUrl, required this.paused, required this.onReady, required this.onError});
+  const _StoryVideo({super.key, required this.source, required this.paused, required this.onReady, required this.onError});
 
   @override
   State<_StoryVideo> createState() => _StoryVideoState();
@@ -148,7 +150,9 @@ class _StoryVideoState extends State<_StoryVideo> {
   }
 
   Future<void> _init() async {
-    final path = await MediaCache.file(widget.dataUrl);
+    final data = await widget.source;
+    if (!mounted) return;
+    final path = await MediaCache.file(data);
     if (!mounted) return;
     if (path == null) {
       setState(() => _failed = true);
@@ -332,7 +336,7 @@ class _StoryViewerState extends State<StoryViewer> with SingleTickerProviderStat
             if (s.isVideo)
               _StoryVideo(
                 key: ValueKey('sv_${s.id}'),
-                dataUrl: s.url,
+                source: app.storyMediaUrl(s),
                 paused: _paused,
                 onReady: (d) {
                   if (!mounted || _videoId != s.id) return;

@@ -181,6 +181,8 @@ class Story {
   final int timestamp;
   final Set<String> viewers;
   final String type; // image | video
+  /// Video ayrı yerde (storyMedia) saklanır; hikaye listesi hafif kalsın diye.
+  final bool media;
 
   bool get isVideo => type == 'video' || url.startsWith('data:video');
 
@@ -189,6 +191,7 @@ class Story {
     required this.uid,
     required this.url,
     this.type = 'image',
+    this.media = false,
     this.caption = '',
     this.timestamp = 0,
     this.viewers = const {},
@@ -199,6 +202,7 @@ class Story {
         uid: uid,
         url: asStr(m['url']),
         type: asStr(m['type'], 'image'),
+        media: asBool(m['media']),
         caption: asStr(m['caption']),
         timestamp: asInt(m['timestamp']),
         viewers: asMap(m['viewers']).keys.toSet(),

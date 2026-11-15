@@ -1,0 +1,121 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "users": {
+      ".read": "auth != null",
+      "$uid": {
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+    "usernames": {
+      ".read": true,
+      "$n": {
+        ".write": "auth != null && (!data.exists() || data.child('uid').val() === auth.uid) && (!newData.exists() || newData.child('uid').val() === auth.uid)"
+      }
+    },
+    "emails": {
+      "$n": {
+        ".read": true,
+        ".write": "auth != null && (root.child('usernames').child($n).child('uid').val() === auth.uid || newData.parent().parent().child('usernames').child($n).child('uid').val() === auth.uid)"
+      }
+    },
+    "posts": {
+      ".read": "auth != null",
+      "$pid": {
+        ".write": "auth != null && (data.exists() ? data.child('uid').val() === auth.uid : newData.child('uid').val() === auth.uid)",
+        "likes": {
+          ".write": "auth != null",
+          ".validate": "newData.isNumber() && newData.val() >= 0"
+        },
+        "likedBy": {
+          "$u": {
+            ".write": "auth != null && auth.uid === $u"
+          }
+        },
+        "comments": {
+          "$cid": {
+            ".write": "auth != null && (data.exists() ? (data.child('uid').val() === auth.uid || root.child('posts').child($pid).child('uid').val() === auth.uid) : newData.child('uid').val() === auth.uid)",
+            "likedBy": {
+              "$u": {
+                ".write": "auth != null && auth.uid === $u"
+              }
+            },
+            "replies": {
+              "$rid": {
+                ".write": "auth != null && (data.exists() ? (data.child('uid').val() === auth.uid || root.child('posts').child($pid).child('uid').val() === auth.uid) : newData.child('uid').val() === auth.uid)"
+              }
+            }
+          }
+        }
+      }
+    },
+    "notifications": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid",
+        "$nid": {
+          ".write": "auth != null && !data.exists() && newData.child('from').val() === auth.uid"
+        }
+      }
+    },
+    "stories": {
+      ".read": "auth != null",
+      "$uid": {
+        ".write": "auth != null && auth.uid === $uid",
+        "$sid": {
+          "viewers": {
+            "$v": {
+              ".write": "auth != null && auth.uid === $v"
+            }
+          }
+        }
+      }
+    },
+    "storyMedia": {
+      ".read": "auth != null",
+      "$uid": {
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+    "following": {
+      ".read": "auth != null",
+      "$uid": {
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+    "followers": {
+      ".read": "auth != null",
+      "$uid": {
+        "$f": {
+          ".write": "auth != null && auth.uid === $f"
+        }
+      }
+    },
+    "userChats": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        "$chat": {
+          ".write": "auth != null && (auth.uid === $uid || $chat.beginsWith(auth.uid + '_') || $chat.endsWith('_' + auth.uid))"
+        }
+      }
+    },
+    "chats": {
+      "$chat": {
+        ".read": "auth != null && ($chat.beginsWith(auth.uid + '_') || $chat.endsWith('_' + auth.uid))",
+        ".write": "auth != null && ($chat.beginsWith(auth.uid + '_') || $chat.endsWith('_' + auth.uid))"
+      }
+    },
+    "fcmTokens": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+    "crashReports": {
+      "$r": {
+        ".write": "auth != null && !data.exists()"
+      }
+    }
+  }
+}
