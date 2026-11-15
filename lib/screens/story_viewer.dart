@@ -11,7 +11,6 @@ import '../core/utils.dart';
 import '../models/models.dart';
 import '../services/app_state.dart';
 import '../widgets/common.dart';
-import '../widgets/video_thumb.dart';
 import 'story_camera_screen.dart';
 import 'profile_screen.dart';
 
@@ -104,7 +103,7 @@ Future<void> addStoryFlow(BuildContext context) async {
                   ? SizedBox(
                       height: 300,
                       width: double.infinity,
-                      child: VideoThumb(dataUrl: dataUrl, showPlayIcon: true),
+                      child: _PreviewVideo(path: x.path),
                     )
                   : Image.memory(bytes, height: 300, fit: BoxFit.cover),
             ),
@@ -125,6 +124,88 @@ Future<void> addStoryFlow(BuildContext context) async {
       .read<AppState>()
       .addStory(dataUrl, caption: caption, type: isVideo ? 'video' : 'image');
   if (context.mounted) showSnack(context, err ?? 'Hikayen paylaşıldı ✨', error: err != null);
+}
+
+/// Paylaşmadan önce önizleme: dokununca oynar / durur (döngüde).
+class _PreviewVideo extends StatefulWidget {
+  final String path;
+  const _PreviewVideo({required this.path});
+
+  @override
+  State<_PreviewVideo> createState() => _PreviewVideoState();
+}
+
+class _PreviewVideoState extends State<_PreviewVideo> {
+  VideoPlayerController? _c;
+  bool _failed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final c = VideoPlayerController.file(File(widget.path));
+    c.initialize().then((_) async {
+      if (!mounted) {
+        await c.dispose();
+        return;
+      }
+      await c.setLooping(true);
+      await c.play();
+      setState(() => _c = c);
+    }).catchError((_) async {
+      await c.dispose();
+      if (mounted) setState(() => _failed = true);
+    });
+  }
+
+  @override
+  void dispose() {
+    _c?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = _c;
+    if (_failed) {
+      return Container(
+        color: Colors.black,
+        alignment: Alignment.center,
+        child: const Icon(Icons.videocam_off_outlined, color: Colors.white54, size: 40),
+      );
+    }
+    if (c == null) {
+      return Container(
+        color: Colors.black,
+        alignment: Alignment.center,
+        child: const CircularProgressIndicator(color: Colors.white, strokeWidth: 2.4),
+      );
+    }
+    return GestureDetector(
+      onTap: () => setState(() => c.value.isPlaying ? c.pause() : c.play()),
+      child: Container(
+        color: Colors.black,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            AspectRatio(
+              aspectRatio: c.value.aspectRatio == 0 ? 9 / 16 : c.value.aspectRatio,
+              child: VideoPlayer(c),
+            ),
+            ValueListenableBuilder<VideoPlayerValue>(
+              valueListenable: c,
+              builder: (_, v, __) => v.isPlaying
+                  ? const SizedBox.shrink()
+                  : Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: const BoxDecoration(color: Colors.black45, shape: BoxShape.circle),
+                      child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 40),
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 /// Hikaye videosu: hazır olunca süresini bildirir, tam ekran oynatır.
