@@ -78,8 +78,38 @@ class MainActivity : FlutterActivity() {
         Thread.setDefaultUncaughtExceptionHandler(CrashSaver(filesDir, prev))
     }
 
+    /** Uygulama içi güncelleme: indirilen APK'nın kurulumunu başlatır. */
+    private fun setupInstaller(flutterEngine: FlutterEngine) {
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "app/installer").setMethodCallHandler { call, result ->
+            if (call.method != "installApk") {
+                result.notImplemented()
+                return@setMethodCallHandler
+            }
+            try {
+                val path = call.argument<String>("path") ?: throw IllegalArgumentException("path")
+                if (android.os.Build.VERSION.SDK_INT >= 26 && !packageManager.canRequestPackageInstalls()) {
+                    startActivity(
+                        android.content.Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES)
+                            .setData(android.net.Uri.parse("package:$packageName"))
+                    )
+                    result.success("permission")
+                    return@setMethodCallHandler
+                }
+                val uri = UpdateFileProvider.getUriForFile(this, "$packageName.updates", java.io.File(path))
+                val i = android.content.Intent(android.content.Intent.ACTION_VIEW)
+                    .setDataAndType(uri, "application/vnd.android.package-archive")
+                    .addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                startActivity(i)
+                result.success("ok")
+            } catch (e: Exception) {
+                result.error("install", e.message, null)
+            }
+        }
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        setupInstaller(flutterEngine)
         val nc = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "flinq/native")
         nativeChannel = nc
         nc.setMethodCallHandler { call, result ->
@@ -205,3 +235,7 @@ class CrashSaver(
         prev?.uncaughtException(t, e)
     }
 }
+
+
+/** Güncelleme APK'sını paket yükleyiciye vermek için (diğer eklentilerin sağlayıcılarıyla çakışmasın). */
+class UpdateFileProvider : androidx.core.content.FileProvider()

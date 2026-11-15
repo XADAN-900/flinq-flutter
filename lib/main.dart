@@ -15,6 +15,7 @@ import 'models/models.dart';
 import 'screens/auth_screen.dart';
 import 'screens/home_screen.dart';
 import 'services/app_state.dart';
+import 'services/app_guard.dart';
 import 'services/native_bridge.dart';
 import 'services/net_status.dart';
 import 'services/dm_service.dart';
@@ -102,7 +103,7 @@ Future<void> _uploadLastCrash(AppState app) async {
       'report': report.length > 8000 ? report.substring(0, 8000) : report,
       'uid': app.uid ?? '',
       'username': app.me?.username ?? '',
-      'app': 'FlinQ 2.0',
+      'app': 'FlinQ ${AppGuard.build}',
       'ts': ServerValue.timestamp,
     }).timeout(const Duration(seconds: 20));
     await ch.invokeMethod('clear');
@@ -164,7 +165,19 @@ class _Gate extends StatelessWidget {
     }
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 350),
-      child: app.loggedIn ? HomeScreen(key: ValueKey(app.uid)) : const AuthScreen(key: ValueKey('auth')),
+      child: app.loggedIn
+          ? AppGuard(
+              key: ValueKey('guard_${app.uid}'),
+              db: app.db,
+              uid: app.uid!,
+              repo: 'XADAN-900/flinq-flutter',
+              apkName: 'FlinQ.apk',
+              appName: 'FlinQ',
+              accent: const Color(0xFFFF3D71),
+              onLogout: app.logout,
+              child: HomeScreen(key: ValueKey(app.uid)),
+            )
+          : const AuthScreen(key: ValueKey('auth')),
     );
   }
 }
