@@ -10,6 +10,7 @@ import '../widgets/common.dart';
 import '../widgets/feed_video.dart';
 import '../widgets/post_card.dart';
 import 'comments_sheet.dart';
+import 'dm_screens.dart';
 
 /// Tam ekran, dikey kaydırmalı video akışı.
 class ReelsScreen extends StatefulWidget {
@@ -152,7 +153,7 @@ class _ReelState extends State<_Reel> {
               _Side(
                 icon: Icons.send_outlined,
                 label: 'Paylaş',
-                onTap: () => Share.share('@${_p.username} FlinQ\'da bir video paylaştı: ${_p.caption}'),
+                onTap: () => sharePostSheet(context, _p),
               ),
               _Side(
                 icon: saved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,

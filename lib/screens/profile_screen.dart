@@ -7,6 +7,7 @@ import '../models/models.dart';
 import '../services/app_state.dart';
 import '../widgets/common.dart';
 import '../widgets/post_card.dart';
+import 'dm_screens.dart';
 import 'edit_profile_screen.dart';
 import 'explore_screen.dart';
 import 'settings_screen.dart';
@@ -183,6 +184,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     primary: !isFollowing,
                     onTap: () => _toggleFollow(app),
                   ),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: _Btn(label: 'Mesaj', onTap: () => openDm(context, widget.uid)),
                 ),
                 const SizedBox(width: 6),
                 Expanded(

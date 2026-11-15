@@ -15,6 +15,7 @@ import 'models/models.dart';
 import 'screens/auth_screen.dart';
 import 'screens/home_screen.dart';
 import 'services/app_state.dart';
+import 'services/dm_service.dart';
 import 'services/notification_service.dart';
 import 'widgets/feed_video.dart';
 
@@ -38,8 +39,9 @@ Future<void> main() async {
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   final prefs = await SharedPreferences.getInstance();
   final app = AppState(prefs);
+  final dm = DmService(app);
   NotificationService.onTap = (payload) => _openFromNotification(app, payload);
-  runApp(FlinQApp(app: app));
+  runApp(FlinQApp(app: app, dm: dm));
   final launch = await NotificationService.launchPayload();
   if (launch != null && launch.isNotEmpty) {
     Future.delayed(const Duration(milliseconds: 1500), () => _openFromNotification(app, launch));
@@ -49,6 +51,10 @@ Future<void> main() async {
 Future<void> _openFromNotification(AppState app, String notifId) async {
   final uid = app.uid;
   if (uid == null) return;
+  if (notifId.startsWith('dm:')) {
+    app.openRequests.add(NotificationItem(id: notifId, type: 'dm', message: '', from: notifId.substring(3), read: true));
+    return;
+  }
   for (final n in app.notifications) {
     if (n.id == notifId) {
       app.openRequests.add(n);
@@ -69,12 +75,16 @@ Future<void> _openFromNotification(AppState app, String notifId) async {
 
 class FlinQApp extends StatelessWidget {
   final AppState app;
-  const FlinQApp({super.key, required this.app});
+  final DmService dm;
+  const FlinQApp({super.key, required this.app, required this.dm});
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider<AppState>.value(
-      value: app,
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider<AppState>.value(value: app),
+        ChangeNotifierProvider<DmService>.value(value: dm),
+      ],
       child: Consumer<AppState>(
         builder: (context, app, _) => MaterialApp(
           title: 'FlinQ',

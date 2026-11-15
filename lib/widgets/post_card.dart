@@ -7,6 +7,7 @@ import '../core/theme.dart';
 import '../core/utils.dart';
 import '../models/models.dart';
 import '../screens/comments_sheet.dart';
+import '../screens/dm_screens.dart';
 import '../screens/explore_screen.dart';
 import '../screens/profile_screen.dart';
 import '../services/app_state.dart';
@@ -301,7 +302,7 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
                 onPressed: () => _toggleLike(),
               ),
               IconButton(icon: const Icon(Icons.mode_comment_outlined, size: 25), onPressed: _openComments),
-              IconButton(icon: const Icon(Icons.send_outlined, size: 24), onPressed: _share),
+              IconButton(icon: const Icon(Icons.send_outlined, size: 24), onPressed: () => sharePostSheet(context, _p)),
               const Spacer(),
               IconButton(
                 icon: Icon(saved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded, size: 27),

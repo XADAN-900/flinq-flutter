@@ -87,7 +87,9 @@ class FeedVideoState extends State<FeedVideo> {
     _visible = visible;
     if (visible && widget.autoplay) {
       play();
-    } else if (!visible) {
+    } else if (visible) {
+      _ensure(); // otomatik oynatma kapalıysa da ilk kareyi (önizleme) göster
+    } else {
       pause();
     }
   }
@@ -109,6 +111,7 @@ class FeedVideoState extends State<FeedVideo> {
       await c.initialize();
       await c.setLooping(widget.loop);
       await c.setVolume(_muted ? 0 : 1);
+      await c.seekTo(const Duration(milliseconds: 200)); // ilk kare görünsün
       if (!mounted) {
         c.dispose();
         return;

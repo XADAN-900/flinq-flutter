@@ -6,6 +6,7 @@ import '../models/models.dart';
 import '../services/app_state.dart';
 import '../widgets/common.dart';
 import '../widgets/post_card.dart';
+import '../widgets/video_thumb.dart';
 
 /// Üç sütunlu gönderi ızgarası (keşfet, profil, etiket).
 class PostGrid extends StatelessWidget {
@@ -47,12 +48,7 @@ class PostThumb extends StatelessWidget {
     if (post.type == 'text') {
       child = TextPostCard(text: post.caption, seed: post.id, small: true);
     } else if (post.type == 'video') {
-      child = Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(colors: [Color(0xFF1B1F2A), Color(0xFF2E3445)]),
-        ),
-        child: const Center(child: Icon(Icons.play_arrow_rounded, color: Colors.white70, size: 38)),
-      );
+      child = VideoThumb(dataUrl: post.url);
     } else {
       final b = MediaCache.bytes(post.url);
       child = b == null

@@ -6,10 +6,12 @@ import 'package:provider/provider.dart';
 import '../core/theme.dart';
 import '../models/models.dart';
 import '../services/app_state.dart';
+import '../services/dm_service.dart';
 import '../widgets/common.dart';
 import '../widgets/feed_video.dart';
 import '../widgets/post_card.dart';
 import 'create_post_screen.dart';
+import 'dm_screens.dart';
 import 'explore_screen.dart';
 import 'notifications_screen.dart';
 import 'post_detail_screen.dart';
@@ -19,6 +21,10 @@ import 'story_viewer.dart';
 
 void openNotificationTarget(BuildContext context, NotificationItem n) {
   final app = context.read<AppState>();
+  if (n.type == 'dm') {
+    openDm(context, n.from);
+    return;
+  }
   if (!n.read) app.markNotificationRead(n.id);
   if (n.postId.isNotEmpty) {
     Navigator.push(context, MaterialPageRoute(builder: (_) => PostDetailScreen(postId: n.postId, openComments: n.commentId.isNotEmpty)));
@@ -217,6 +223,7 @@ class FeedScreenState extends State<FeedScreen> {
         ? _posts.where((p) => app.following.contains(p.uid) || p.uid == app.uid).toList()
         : _posts;
     final unread = app.unreadCount;
+    final dmUnread = context.watch<DmService>().unreadTotal;
     return Scaffold(
       appBar: AppBar(
         title: const GradientText('FlinQ', style: TextStyle(fontSize: 30, fontWeight: FontWeight.w900, letterSpacing: -1)),
@@ -228,6 +235,15 @@ class FeedScreenState extends State<FeedScreen> {
               child: const Icon(Icons.favorite_border_rounded, size: 28),
             ),
             onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsScreen())),
+          ),
+          IconButton(
+            tooltip: 'Mesajlar',
+            icon: Badge(
+              isLabelVisible: dmUnread > 0,
+              label: Text('$dmUnread'),
+              child: const Icon(Icons.send_rounded, size: 26),
+            ),
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const InboxScreen())),
           ),
           const SizedBox(width: 4),
         ],
