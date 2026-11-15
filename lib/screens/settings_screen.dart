@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../core/theme.dart';
 import '../services/app_state.dart';
 import '../services/native_bridge.dart';
+import '../widgets/common.dart';
 import 'edit_profile_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
@@ -98,6 +99,13 @@ class SettingsScreen extends StatelessWidget {
               }
             },
           ),
+          head('Gizlilik'),
+          ListTile(
+            leading: const Icon(Icons.block_rounded),
+            title: const Text('Engellenen hesaplar'),
+            trailing: Text('${app.me?.blocked.length ?? 0}'),
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BlockedScreen())),
+          ),
           head('Hakkında'),
           const ListTile(
             leading: Icon(Icons.info_outline),
@@ -118,6 +126,37 @@ class SettingsScreen extends StatelessWidget {
           const SizedBox(height: 30),
         ],
       ),
+    );
+  }
+}
+
+
+class BlockedScreen extends StatelessWidget {
+  const BlockedScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final app = context.watch<AppState>();
+    final ids = (app.me?.blocked ?? const <String>{}).toList();
+    app.warmUsers(ids);
+    return Scaffold(
+      appBar: AppBar(title: const Text('Engellenen hesaplar')),
+      body: ids.isEmpty
+          ? const Center(child: Text('Kimseyi engellemedin.'))
+          : ListView.builder(
+              itemCount: ids.length,
+              itemBuilder: (_, i) {
+                final u = app.cachedUser(ids[i]);
+                return ListTile(
+                  leading: FAvatar(name: u?.username ?? '?', photo: u?.photo, size: 44),
+                  title: Text(u?.username ?? '…'),
+                  trailing: OutlinedButton(
+                    onPressed: () => app.setBlocked(ids[i], false),
+                    child: const Text('Engeli kaldır'),
+                  ),
+                );
+              },
+            ),
     );
   }
 }

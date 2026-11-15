@@ -90,6 +90,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final theme = Theme.of(context);
     final hasStory = app.stories.containsKey(widget.uid);
     final isFollowing = app.following.contains(widget.uid);
+    final blocked = !mine && app.isBlocked(widget.uid);
 
     if (_loading && u == null) {
       return Scaffold(appBar: AppBar(), body: const Center(child: CircularProgressIndicator()));
@@ -177,6 +178,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     onTap: () => Share.share('FlinQ\'da beni takip et: @${u.username}'),
                   ),
                 ),
+              ] else if (blocked) ...[
+                Expanded(
+                  child: _Btn(
+                    label: 'Engeli kaldır',
+                    primary: true,
+                    onTap: () async {
+                      await app.setBlocked(widget.uid, false);
+                      _load();
+                    },
+                  ),
+                ),
               ] else ...[
                 Expanded(
                   child: _Btn(
@@ -204,7 +216,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
 
-    final postsTab = _posts == null
+    final postsTab = blocked
+        ? const EmptyState(
+            icon: Icons.block_rounded,
+            title: 'Bu hesabı engelledin',
+            subtitle: 'Engeli kaldırırsan gönderilerini tekrar görebilirsin.',
+          )
+        : _posts == null
         ? const Center(child: CircularProgressIndicator())
         : _posts!.isEmpty
             ? EmptyState(
@@ -255,6 +273,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ],
           ),
           actions: [
+            if (!mine)
+              PopupMenuButton<String>(
+                onSelected: (v) async {
+                  if (v != 'block') return;
+                  final ok = await confirmDialog(context,
+                      title: blocked ? 'Engeli kaldır' : '@${u.username} engellensin mi?',
+                      message: blocked
+                          ? 'Gönderilerini tekrar göreceksin ve sana mesaj gönderebilecek.'
+                          : 'Sana mesaj gönderemeyecek; gönderileri, yorumları ve hikayeleri sana görünmeyecek. '
+                              'Engellediğini ona bildirmeyiz.',
+                      confirmText: blocked ? 'Kaldır' : 'Engelle',
+                      destructive: !blocked);
+                  if (!ok) return;
+                  await app.setBlocked(widget.uid, !blocked);
+                  _load();
+                },
+                itemBuilder: (_) => [
+                  PopupMenuItem(value: 'block', child: Text(blocked ? 'Engeli kaldır' : 'Engelle')),
+                ],
+              ),
             if (mine) ...[
               IconButton(icon: const Icon(Icons.add_box_outlined), onPressed: () => addStoryFlow(context)),
               IconButton(

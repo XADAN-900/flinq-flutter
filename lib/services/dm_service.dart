@@ -17,6 +17,10 @@ class DmMessage {
   final String url;
   final String postId;
   final int ts;
+  final int duration; // sesli mesaj: saniye
+  final bool media; // video ayrı düğümde (chats/{id}/media/{msgId})
+  final Map<String, Object?>? replyTo; // {id, from, text}
+  final Map<String, String> reactions; // uid -> emoji
 
   const DmMessage({
     required this.id,
@@ -26,6 +30,10 @@ class DmMessage {
     this.url = '',
     this.postId = '',
     this.ts = 0,
+    this.duration = 0,
+    this.media = false,
+    this.replyTo,
+    this.reactions = const {},
   });
 
   Map<String, Object?> toMap() => {
@@ -35,6 +43,10 @@ class DmMessage {
         if (url.isNotEmpty) 'url': url,
         if (postId.isNotEmpty) 'postId': postId,
         'ts': ts,
+        if (duration > 0) 'duration': duration,
+        if (media) 'media': true,
+        if (replyTo != null) 'replyTo': replyTo,
+        if (reactions.isNotEmpty) 'reactions': reactions,
       };
 
   factory DmMessage.fromMap(String id, Map<String, dynamic> m) => DmMessage(
@@ -45,6 +57,10 @@ class DmMessage {
         url: asStr(m['url']),
         postId: asStr(m['postId']),
         ts: asInt(m['ts']),
+        duration: asInt(m['duration']),
+        media: asBool(m['media']),
+        replyTo: asMap(m['replyTo']).isEmpty ? null : asMap(m['replyTo']),
+        reactions: asMap(m['reactions']).map((k, v) => MapEntry(k, asStr(v))),
       );
 }
 
@@ -146,7 +162,7 @@ class DmService extends ChangeNotifier {
       final list = asMap(e.snapshot.value)
           .entries
           .map((x) => DmThread.fromMap(x.key, asMap(x.value)))
-          .where((t) => t.other.isNotEmpty)
+          .where((t) => t.other.isNotEmpty && !app.isBlocked(t.other))
           .toList()
         ..sort((a, b) => b.lastTs.compareTo(a.lastTs));
       if (!first) {
@@ -191,22 +207,39 @@ class DmService extends ChangeNotifier {
         return '📎 Bir gönderi paylaştı';
       case 'heart':
         return '❤️';
+      case 'voice':
+        return '🎤 Sesli mesaj';
+      case 'video':
+        return '🎥 Video';
       default:
         return text.length > 80 ? '${text.substring(0, 80)}…' : text;
     }
   }
 
-  Future<void> send(String other, {String text = '', String type = 'text', String? url, String? postId}) async {
+  Future<void> send(String other,
+      {String text = '',
+      String type = 'text',
+      String? url,
+      String? postId,
+      int duration = 0,
+      Map<String, Object?>? replyTo}) async {
     final me = _uid;
     if (me == null || other.isEmpty || other == me) return;
     final chatId = chatIdFor(me, other);
     final preview = previewOf(type, text);
-    await messages(chatId).push().set({
+    final ref = messages(chatId).push();
+    // Videolar mesaj listesine gömülmez (sohbet açılırken hepsi inmesin): ayrı düğüm.
+    final separate = type == 'video' && url != null;
+    if (separate) await db.ref('chats/$chatId/media/${ref.key}').set(url);
+    await ref.set({
       'from': me,
       'text': text,
       'type': type,
-      if (url != null) 'url': url,
+      if (url != null && !separate) 'url': url,
+      if (separate) 'media': true,
       if (postId != null) 'postId': postId,
+      if (duration > 0) 'duration': duration,
+      if (replyTo != null) 'replyTo': replyTo,
       'ts': ServerValue.timestamp,
     });
     await db.ref().update({
@@ -259,9 +292,36 @@ class DmService extends ChangeNotifier {
     } catch (_) {}
   }
 
+  /// Mesaja tepki (aynı emojiye tekrar basınca kaldırır).
+  Future<void> react(String chatId, DmMessage m, String emoji) async {
+    final me = _uid;
+    if (me == null) return;
+    final r = messages(chatId).child('${m.id}/reactions/$me');
+    if (m.reactions[me] == emoji) {
+      await r.remove();
+    } else {
+      await r.set(emoji);
+    }
+  }
+
+  final Map<String, Future<String?>> _media = {};
+
+  /// Ayrı saklanan video verisi (gerektiğinde indirilir, en fazla 3 tanesi bellekte).
+  Future<String?> mediaOf(String chatId, DmMessage m) {
+    if (m.url.isNotEmpty) return Future.value(m.url);
+    final k = '$chatId/${m.id}';
+    final hit = _media[k];
+    if (hit != null) return hit;
+    final f = db.ref('chats/$chatId/media/${m.id}').get().then((s) => asStrOrNull(s.value)).catchError((_) => null);
+    if (_media.length >= 3) _media.remove(_media.keys.first);
+    _media[k] = f;
+    return f;
+  }
+
   Future<void> unsend(String chatId, String msgId, {bool wasLast = false, String other = ''}) async {
     final me = _uid;
     await messages(chatId).child(msgId).remove();
+    await db.ref('chats/$chatId/media/$msgId').remove().catchError((_) {});
     if (wasLast && me != null) {
       final up = <String, Object?>{'userChats/$me/$chatId/lastText': 'Mesaj geri alındı'};
       if (other.isNotEmpty) up['userChats/$other/$chatId/lastText'] = 'Mesaj geri alındı';

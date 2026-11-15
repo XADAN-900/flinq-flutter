@@ -51,6 +51,10 @@ final class FqWatcher {
     private final Set<String> seen = new HashSet<>();
     private final Map<String, Long> unread = new HashMap<>();
     private final Map<String, String> names = new HashMap<>();
+    /** Engellediğim kişiler: onlardan bildirim gösterilmez. */
+    private final Set<String> blocked = new HashSet<>();
+    private com.google.firebase.database.DatabaseReference blockedRef;
+    private ValueEventListener blockedListener;
 
     private FqWatcher(Context c) {
         ctx = c;
@@ -104,6 +108,7 @@ final class FqWatcher {
         doStop();
         uid = s.uid;
         startedAt = System.currentTimeMillis();
+        watchBlocked();
         watchNotifications();
         watchChats();
     }
@@ -114,6 +119,13 @@ final class FqWatcher {
             if (chatsQuery != null && chatsListener != null) chatsQuery.removeEventListener(chatsListener);
         } catch (Exception ignored) {
         }
+        try {
+            if (blockedRef != null && blockedListener != null) blockedRef.removeEventListener(blockedListener);
+        } catch (Exception ignored) {
+        }
+        blockedRef = null;
+        blockedListener = null;
+        blocked.clear();
         notifQuery = null;
         notifListener = null;
         chatsQuery = null;
@@ -128,6 +140,24 @@ final class FqWatcher {
         @Override public void onChildRemoved(DataSnapshot s) { }
         @Override public void onChildMoved(DataSnapshot s, String p) { }
         @Override public void onCancelled(DatabaseError e) { }
+    }
+
+    private void watchBlocked() {
+        blockedRef = db.getReference("users").child(uid).child("blocked");
+        blockedListener = new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot s) {
+                blocked.clear();
+                for (DataSnapshot c : s.getChildren()) {
+                    if (c.getKey() != null) blocked.add(c.getKey());
+                }
+            }
+
+            @Override
+            public void onCancelled(DatabaseError e) {
+            }
+        };
+        blockedRef.addValueEventListener(blockedListener);
     }
 
     // ---------- beğeni / yorum / takip / yanıt / etiket ----------
@@ -146,6 +176,8 @@ final class FqWatcher {
                     // Servis başlamadan önceki eski bildirimleri tekrar gösterme
                     if (time == null || time < startedAt - 60_000) return;
                     if (MainActivity.visible) return;
+                    String from = s.child("from").getValue(String.class);
+                    if (from != null && blocked.contains(from)) return;
                     String msg = s.child("message").getValue(String.class);
                     FqNotify.showActivity(ctx, id, plain(msg));
                 } catch (Exception ignored) {
@@ -191,6 +223,7 @@ final class FqWatcher {
             final String lastFrom = s.child("lastFrom").getValue(String.class);
             final String text = s.child("lastText").getValue(String.class);
             if (chatId == null || other == null || other.equals(uid) || uid.equals(lastFrom)) return;
+            if (blocked.contains(other)) return;
             String cached = names.get(other);
             if (cached != null) {
                 FqNotify.showDm(ctx, chatId, other, cached, text == null ? "Yeni mesaj" : text);

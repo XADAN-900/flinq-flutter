@@ -9,6 +9,7 @@ class FUser {
   final bool verified;
   final int lastUsernameChange;
   final Set<String> saved;
+  final Set<String> blocked;
 
   const FUser({
     required this.uid,
@@ -19,6 +20,7 @@ class FUser {
     this.verified = false,
     this.lastUsernameChange = 0,
     this.saved = const {},
+    this.blocked = const {},
   });
 
   factory FUser.fromMap(String uid, Map<String, dynamic> m) => FUser(
@@ -30,6 +32,7 @@ class FUser {
         verified: asBool(m['verified']),
         lastUsernameChange: asInt(m['lastUsernameChange']),
         saved: asMap(m['saved']).keys.toSet(),
+        blocked: asMap(m['blocked']).keys.toSet(),
       );
 }
 

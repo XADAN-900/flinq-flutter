@@ -126,6 +126,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       final list = asMap(e.snapshot.value)
           .entries
           .map((x) => NotificationItem.fromMap(x.key, asMap(x.value)))
+          .where((n) => !isBlocked(n.from))
           .toList()
         ..sort((a, b) => b.time.compareTo(a.time));
       final known = notifications.map((n) => n.id).toSet();
@@ -148,7 +149,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
             .where((s) => !s.expired && (s.url.isNotEmpty || s.media))
             .toList()
           ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
-        if (list.isNotEmpty) out[owner] = list;
+        if (list.isNotEmpty && !isBlocked(owner)) out[owner] = list;
         // Süresi dolan kendi hikayelerimi temizle
         if (owner == uid) {
           asMap(v).forEach((sid, sv) {
@@ -443,8 +444,44 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       final got = await Future.wait(batch.map(_fetchPostMeta));
       out.addAll(got.whereType<Post>());
     }
+    out.removeWhere((p) => isBlocked(p.uid));
     out.sort((a, b) => b.timestamp.compareTo(a.timestamp));
     return out;
+  }
+
+  // ------------------------------------------------------------------
+  // Engelleme
+  // ------------------------------------------------------------------
+  /// Bu kişiyi ben mi engelledim? (Gönderileri, yorumları, hikayeleri, mesajları gizlenir.)
+  bool isBlocked(String other) => me?.blocked.contains(other) ?? false;
+
+  Future<void> setBlocked(String other, bool block) async {
+    final u = uid;
+    if (u == null || other == u) return;
+    if (block) {
+      await db.ref('users/$u/blocked/$other').set(true);
+      // Engellenen kişiyi takipten çık.
+      if (following.contains(other)) {
+        following.remove(other);
+        await db.ref('following/$u/$other').remove().catchError((_) {});
+        await db.ref('followers/$other/$u').remove().catchError((_) {});
+      }
+    } else {
+      await db.ref('users/$u/blocked/$other').remove();
+    }
+    invalidatePosts();
+    notifyListeners();
+  }
+
+  /// Karşı taraf beni engellemiş mi?
+  Future<bool> hasBlockedMe(String other) async {
+    final u = uid;
+    if (u == null) return false;
+    try {
+      return (await db.ref('users/$other/blocked/$u').get()).exists;
+    } catch (_) {
+      return false;
+    }
   }
 
   // ---- Medya: görünürken tek tek indir ----
@@ -690,6 +727,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       final comments = asMap(e.snapshot.value)
           .entries
           .map((x) => Comment.fromMap(x.key, asMap(x.value)))
+          .where((c) => !isBlocked(c.uid))
           .toList()
         ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
       yield Post(

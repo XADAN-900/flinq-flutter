@@ -96,14 +96,14 @@
       "$uid": {
         ".read": "auth != null && auth.uid === $uid",
         "$chat": {
-          ".write": "auth != null && (auth.uid === $uid || $chat.beginsWith(auth.uid + '_') || $chat.endsWith('_' + auth.uid))"
+          ".write": "auth != null && (auth.uid === $uid || (($chat.beginsWith(auth.uid + '_') || $chat.endsWith('_' + auth.uid)) && !root.child('users').child($uid).child('blocked').child(auth.uid).exists()))"
         }
       }
     },
     "chats": {
       "$chat": {
         ".read": "auth != null && ($chat.beginsWith(auth.uid + '_') || $chat.endsWith('_' + auth.uid))",
-        ".write": "auth != null && ($chat.beginsWith(auth.uid + '_') || $chat.endsWith('_' + auth.uid))"
+        ".write": "auth != null && ($chat.beginsWith(auth.uid + '_') || $chat.endsWith('_' + auth.uid)) && !root.child('users').child($chat.replace(auth.uid, '').replace('_', '')).child('blocked').child(auth.uid).exists()"
       }
     },
     "fcmTokens": {
