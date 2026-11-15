@@ -119,9 +119,8 @@ class Post {
         .toList()
       ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
     final liked = asMap(m['likedBy']).entries.where((e) => asBool(e.value)).map((e) => e.key).toSet();
-    var type = asStr(m['type'], 'image');
+    final type = asStr(m['type'], 'image');
     final url = asStr(m['url']);
-    if (url.isEmpty && type != 'text') type = 'text';
     return Post(
       id: id,
       uid: asStr(m['uid']),

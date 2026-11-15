@@ -6,6 +6,7 @@ import '../models/models.dart';
 import '../services/app_state.dart';
 import '../widgets/common.dart';
 import '../widgets/post_card.dart';
+import '../widgets/post_image.dart';
 import '../widgets/video_thumb.dart';
 
 /// Üç sütunlu gönderi ızgarası (keşfet, profil, etiket).
@@ -48,12 +49,9 @@ class PostThumb extends StatelessWidget {
     if (post.type == 'text') {
       child = TextPostCard(text: post.caption, seed: post.id, small: true);
     } else if (post.type == 'video') {
-      child = VideoThumb(dataUrl: post.url);
+      child = VideoThumb(postId: post.id);
     } else {
-      final b = MediaCache.bytes(post.url);
-      child = b == null
-          ? Container(color: Colors.black12)
-          : Image.memory(b, fit: BoxFit.cover, cacheWidth: 360, gaplessPlayback: true);
+      child = PostImage(postId: post.id, cacheWidth: 360);
     }
     return GestureDetector(
       onTap: onTap,

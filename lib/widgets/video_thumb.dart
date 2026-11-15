@@ -4,16 +4,21 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'package:provider/provider.dart';
+
 import '../core/utils.dart';
+import '../services/app_state.dart';
 
 /// Videonun bir karesini küçük resim olarak gösterir (ızgaralar, sohbet, akış posteri).
 /// Kare Android'in MediaMetadataRetriever'ı ile alınır (video oynatıcı açılmaz, hafif)
 /// ve diske önbelleklenir; bir kez üretilen küçük resim bir daha hesaplanmaz.
 class VideoThumb extends StatefulWidget {
-  final String dataUrl;
+  /// Ya [postId] (gönderi videosu, gerektiğinde indirilir) ya da [dataUrl] (yerel önizleme).
+  final String? postId;
+  final String? dataUrl;
   final bool showPlayIcon;
   final BoxFit fit;
-  const VideoThumb({super.key, required this.dataUrl, this.showPlayIcon = false, this.fit = BoxFit.cover});
+  const VideoThumb({super.key, this.postId, this.dataUrl, this.showPlayIcon = false, this.fit = BoxFit.cover});
 
   @override
   State<VideoThumb> createState() => _VideoThumbState();
@@ -30,7 +35,15 @@ class _VideoThumbState extends State<VideoThumb> {
   Uint8List? _img;
   bool _failed = false;
 
-  int get _key => Object.hash(widget.dataUrl.length, widget.dataUrl.hashCode);
+  int get _key => widget.postId != null
+      ? Object.hash('post', widget.postId)
+      : Object.hash((widget.dataUrl ?? '').length, (widget.dataUrl ?? '').hashCode);
+
+  Future<String?> _path() {
+    final id = widget.postId;
+    if (id != null) return context.read<AppState>().postVideoPath(id);
+    return MediaCache.file(widget.dataUrl);
+  }
 
   @override
   void initState() {
@@ -46,7 +59,7 @@ class _VideoThumbState extends State<VideoThumb> {
   @override
   void didUpdateWidget(covariant VideoThumb old) {
     super.didUpdateWidget(old);
-    if (old.dataUrl != widget.dataUrl) {
+    if (old.dataUrl != widget.dataUrl || old.postId != widget.postId) {
       _img = _mem[_key];
       _failed = false;
       if (_img == null) _load();
@@ -69,11 +82,11 @@ class _VideoThumbState extends State<VideoThumb> {
     if (_waiting.isNotEmpty) _waiting.removeAt(0).complete();
   }
 
-  static Future<Uint8List?> _generate(int key, String dataUrl) {
+  static Future<Uint8List?> _generate(int key, Future<String?> Function() pathLoader) {
     return _pending.putIfAbsent(key, () async {
       await _acquire();
       try {
-        final path = await MediaCache.file(dataUrl);
+        final path = await pathLoader();
         if (path == null) return null;
         final thumbFile = File('$path.thumb.jpg');
         Uint8List? bytes;
@@ -100,7 +113,7 @@ class _VideoThumbState extends State<VideoThumb> {
   }
 
   Future<void> _load() async {
-    final b = await _generate(_key, widget.dataUrl);
+    final b = await _generate(_key, _path);
     if (!mounted) return;
     setState(() {
       _img = b;

@@ -35,7 +35,7 @@ Future<void> addStoryFlow(BuildContext context) async {
     ),
   );
   if (source == null || !context.mounted) return;
-  final x = await ImagePicker().pickImage(source: source, maxWidth: 1080, maxHeight: 1920, imageQuality: 80);
+  final x = await ImagePicker().pickImage(source: source, maxWidth: 900, maxHeight: 1600, imageQuality: 72);
   if (x == null || !context.mounted) return;
   final bytes = await x.readAsBytes();
   if (!context.mounted) return;

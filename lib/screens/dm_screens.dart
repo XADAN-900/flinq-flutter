@@ -13,6 +13,7 @@ import '../services/app_state.dart';
 import '../services/dm_service.dart';
 import '../widgets/common.dart';
 import '../widgets/post_card.dart';
+import '../widgets/post_image.dart';
 import '../widgets/video_thumb.dart';
 import 'post_detail_screen.dart';
 
@@ -364,7 +365,7 @@ class _DmChatScreenState extends State<DmChatScreen> with WidgetsBindingObserver
     dm.activeChat = chatId;
     WidgetsBinding.instance.addObserver(this);
     app.userById(widget.otherUid);
-    final q = dm.messages(chatId).orderByKey().limitToLast(100);
+    final q = dm.messages(chatId).orderByKey().limitToLast(30);
     q.get().then((_) {
       if (mounted) setState(() => _loaded = true);
     }).catchError((_) {
@@ -445,7 +446,7 @@ class _DmChatScreenState extends State<DmChatScreen> with WidgetsBindingObserver
   }
 
   Future<void> _sendImage(ImageSource src) async {
-    final x = await ImagePicker().pickImage(source: src, maxWidth: 1440, maxHeight: 1440, imageQuality: 80);
+    final x = await ImagePicker().pickImage(source: src, maxWidth: 1080, maxHeight: 1080, imageQuality: 72);
     if (x == null) return;
     setState(() => _sendingImage = true);
     final b = await x.readAsBytes();
@@ -734,10 +735,9 @@ class _DmChatScreenState extends State<DmChatScreen> with WidgetsBindingObserver
             if (p.type == 'text') {
               media = TextPostCard(text: p.caption, seed: p.id, small: true);
             } else if (p.type == 'video') {
-              media = VideoThumb(dataUrl: p.url, showPlayIcon: true);
+              media = VideoThumb(postId: p.id, showPlayIcon: true);
             } else {
-              final b = MediaCache.bytes(p.url);
-              media = b == null ? Container(color: Colors.black12) : Image.memory(b, fit: BoxFit.cover, cacheWidth: 600);
+              media = PostImage(postId: p.id, cacheWidth: 600);
             }
             return GestureDetector(
               onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => PostDetailScreen(postId: p.id))),

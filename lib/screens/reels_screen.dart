@@ -38,7 +38,7 @@ class _ReelsScreenState extends State<ReelsScreen> {
   Future<void> _load() async {
     final list = await context.read<AppState>().loadVideos();
     if (!mounted) return;
-    setState(() => _videos = list.where((p) => p.url.isNotEmpty).toList());
+    setState(() => _videos = list);
   }
 
   @override
@@ -109,7 +109,7 @@ class _ReelState extends State<_Reel> {
             });
             _like(force: true);
           },
-          child: FeedVideo(dataUrl: _p.url, fill: true, muted: false, autoplay: true),
+          child: FeedVideo(postId: _p.id, fill: true, muted: false, autoplay: true),
         ),
         if (_heart)
           const Center(

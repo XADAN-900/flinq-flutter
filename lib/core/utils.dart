@@ -243,7 +243,7 @@ class MediaCache {
           _files[k] = path;
           return path;
         }
-        final ok = await compute(_decodeToFile, [data, path]);
+        final ok = await compute(writeDataUrlToFile, [data, path]);
         if (!ok) return null;
         _files[k] = path;
         return path;
@@ -257,7 +257,7 @@ class MediaCache {
 }
 
 /// Ayrı isolate'te: base64 çöz ve dosyaya yaz (ana iş parçacığı donmasın).
-bool _decodeToFile(List<String> args) {
+bool writeDataUrlToFile(List<String> args) {
   final b = decodeDataUrl(args[0]);
   if (b == null) return false;
   File(args[1]).writeAsBytesSync(b, flush: true);

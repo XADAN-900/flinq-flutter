@@ -3,7 +3,10 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 
+import 'package:provider/provider.dart';
+
 import '../core/utils.dart';
+import '../services/app_state.dart';
 import 'video_thumb.dart';
 
 /// Akıştaki video: ekranda görünür olunca (otomatik oynatma açıksa) oynar,
@@ -15,7 +18,9 @@ class VideoPauseObserver extends NavigatorObserver {
 }
 
 class FeedVideo extends StatefulWidget {
-  final String dataUrl;
+  /// Ya [postId] (gönderi videosu, gerektiğinde indirilir) ya da [dataUrl] (yerel önizleme).
+  final String? postId;
+  final String? dataUrl;
   final bool autoplay;
   final bool muted;
   final ValueChanged<bool>? onMuteChanged;
@@ -24,7 +29,8 @@ class FeedVideo extends StatefulWidget {
 
   const FeedVideo({
     super.key,
-    required this.dataUrl,
+    this.postId,
+    this.dataUrl,
     this.autoplay = true,
     this.muted = true,
     this.onMuteChanged,
@@ -98,7 +104,10 @@ class FeedVideoState extends State<FeedVideo> {
   Future<void> _ensure() async {
     if (_c != null || _loading || _failed) return;
     setState(() => _loading = true);
-    final path = await MediaCache.file(widget.dataUrl);
+    final id = widget.postId;
+    final path = id != null
+        ? await context.read<AppState>().postVideoPath(id)
+        : await MediaCache.file(widget.dataUrl);
     if (!mounted) return;
     if (path == null) {
       setState(() {
@@ -184,7 +193,7 @@ class FeedVideoState extends State<FeedVideo> {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                VideoThumb(dataUrl: widget.dataUrl),
+                VideoThumb(postId: widget.postId, dataUrl: widget.dataUrl),
                 Center(
                   child: _failed
                       ? const Icon(Icons.videocam_off_rounded, color: Colors.white54, size: 48)

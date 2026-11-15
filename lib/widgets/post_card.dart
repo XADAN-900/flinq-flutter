@@ -13,6 +13,7 @@ import '../screens/profile_screen.dart';
 import '../services/app_state.dart';
 import 'common.dart';
 import 'feed_video.dart';
+import 'post_image.dart';
 
 void openProfile(BuildContext context, String uid) {
   Navigator.push(context, MaterialPageRoute(builder: (_) => ProfileScreen(uid: uid)));
@@ -217,7 +218,7 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
     final hasStory = app.stories.containsKey(_p.uid);
     final media = _p.type == 'video'
         ? FeedVideo(
-            dataUrl: _p.url,
+            postId: _p.id,
             autoplay: app.autoplay,
             muted: app.feedMuted,
             onMuteChanged: (m) => app.setPref('feedMuted', m),
@@ -364,21 +365,12 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
   }
 
   Widget _image() {
-    final bytes = MediaCache.bytes(_p.url);
-    if (bytes == null) {
-      return AspectRatio(
-        aspectRatio: 1,
-        child: Container(color: Colors.black12, child: const Icon(Icons.broken_image_outlined, size: 48)),
-      );
-    }
-    return ConstrainedBox(
-      constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.width * 1.35),
-      child: Image.memory(
-        bytes,
-        width: double.infinity,
-        fit: BoxFit.cover,
-        gaplessPlayback: true,
-        cacheWidth: (MediaQuery.of(context).size.width * MediaQuery.of(context).devicePixelRatio).round().clamp(320, 1440).toInt(),
+    final w = MediaQuery.of(context).size.width;
+    return AspectRatio(
+      aspectRatio: 4 / 5,
+      child: PostImage(
+        postId: _p.id,
+        cacheWidth: (w * MediaQuery.of(context).devicePixelRatio).round().clamp(320, 1440).toInt(),
       ),
     );
   }

@@ -1,12 +1,15 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_database/firebase_database.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/firebase_config.dart';
@@ -273,13 +276,17 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   // ------------------------------------------------------------------
   FUser? cachedUser(String uid) => _users[uid];
 
+  /// Sadece kullanıcı adı bilinen (fotoğrafı henüz yüklenmemiş) kayıtlar.
+  final Set<String> _stubs = {};
+
   Future<FUser?> userById(String uid, {bool refresh = false}) async {
-    if (!refresh && _users.containsKey(uid)) return _users[uid];
+    if (!refresh && _users.containsKey(uid) && !_stubs.contains(uid)) return _users[uid];
     try {
       final s = await db.ref('users/$uid').get();
-      if (!s.exists) return null;
+      if (!s.exists) return _users[uid];
       final u = FUser.fromMap(uid, asMap(s.value));
       _users[uid] = u;
+      _stubs.remove(uid);
       return u;
     } catch (_) {
       return _users[uid];
@@ -290,7 +297,9 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<void> warmUsers(Iterable<String> uids) async {
     // Bulunamayan kullanıcıyı tekrar tekrar istemeyelim (sonsuz yenileme döngüsü olmasın).
-    final missing = uids.where((u) => u.isNotEmpty && !_users.containsKey(u) && !_warmTried.contains(u)).toSet();
+    final missing = uids
+        .where((u) => u.isNotEmpty && (!_users.containsKey(u) || _stubs.contains(u)) && !_warmTried.contains(u))
+        .toSet();
     if (missing.isEmpty) return;
     _warmTried.addAll(missing);
     await Future.wait(missing.map((u) => userById(u)));
@@ -300,11 +309,18 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   bool _allLoaded = false;
   Future<List<FUser>> allUsers({bool refresh = false}) async {
     if (!_allLoaded || refresh) {
+      // Tüm "users" düğümü (profil fotoğraflarıyla) çok büyük olabilir; arama için sadece
+      // küçük "usernames" indeksini okuyoruz. Fotoğraflar ekranda görününce tek tek yüklenir.
       try {
-        final s = await db.ref('users').get();
+        final s = await db.ref('usernames').get();
         asMap(s.value).forEach((k, v) {
           final m = asMap(v);
-          if (m.isNotEmpty) _users[k] = FUser.fromMap(k, m);
+          final id = asStr(m['uid']);
+          if (id.isEmpty) return;
+          if (!_users.containsKey(id)) {
+            _users[id] = FUser(uid: id, username: asStr(m['username'], k));
+            _stubs.add(id);
+          }
         });
         _allLoaded = true;
       } catch (_) {}
@@ -348,25 +364,90 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     return _keyCache ?? const [];
   }
 
+  static const List<String> _metaFields = [
+    'uid', 'username', 'caption', 'type', 'likes', 'likedBy', 'comments', 'timestamp', 'edited',
+  ];
+
+  /// Gönderinin medya (url) DIŞINDAKİ alanlarını okur. Base64 fotoğraf/video ancak
+  /// ekranda gösterileceği zaman [postImage] / [postVideoPath] ile tek tek indirilir.
+  Future<Post?> _fetchPostMeta(String id) async {
+    try {
+      final snaps = await Future.wait(_metaFields.map((f) => db.ref('posts/$id/$f').get()));
+      final m = <String, dynamic>{};
+      for (var i = 0; i < _metaFields.length; i++) {
+        if (snaps[i].exists) m[_metaFields[i]] = snaps[i].value;
+      }
+      if (m['uid'] == null) return null;
+      final p = Post.fromMap(id, m);
+      return p.isValid ? p : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<List<Post>> _fetchPosts(Iterable<String> ids) async {
     final out = <Post>[];
     final list = ids.toList();
-    for (var i = 0; i < list.length; i += 8) {
-      final batch = list.sublist(i, i + 8 > list.length ? list.length : i + 8);
-      final got = await Future.wait(batch.map((id) async {
-        try {
-          final s = await db.ref('posts/$id').get();
-          if (!s.exists) return null;
-          final p = Post.fromMap(id, asMap(s.value));
-          return p.isValid && p.uid.isNotEmpty ? p : null;
-        } catch (_) {
-          return null;
-        }
-      }));
+    for (var i = 0; i < list.length; i += 6) {
+      final batch = list.sublist(i, i + 6 > list.length ? list.length : i + 6);
+      final got = await Future.wait(batch.map(_fetchPostMeta));
       out.addAll(got.whereType<Post>());
     }
     out.sort((a, b) => b.timestamp.compareTo(a.timestamp));
     return out;
+  }
+
+  // ---- Medya: görünürken tek tek indir ----
+  final Map<String, Future<Uint8List?>> _imgFutures = {};
+  final List<String> _imgOrder = [];
+  final Map<String, Future<String?>> _vidFutures = {};
+
+  /// Gönderi fotoğrafının baytları (en fazla 40 tanesi bellekte tutulur).
+  Future<Uint8List?> postImage(String id) {
+    final hit = _imgFutures[id];
+    if (hit != null) return hit;
+    final f = () async {
+      try {
+        final s = await db.ref('posts/$id/url').get();
+        return decodeDataUrl(asStrOrNull(s.value));
+      } catch (_) {
+        return null;
+      }
+    }();
+    _imgFutures[id] = f;
+    _imgOrder.add(id);
+    while (_imgOrder.length > 40) {
+      _imgFutures.remove(_imgOrder.removeAt(0));
+    }
+    return f;
+  }
+
+  /// Gönderi videosunu geçici dosyaya indirir ve yolunu döndürür (diskte önbellekli).
+  Future<String?> postVideoPath(String id) {
+    final hit = _vidFutures[id];
+    if (hit != null) return hit;
+    final f = () async {
+      try {
+        final dir = await getTemporaryDirectory();
+        for (final ext in const ['mp4', 'webm', 'mov', '3gp', 'mkv']) {
+          final c = File('${dir.path}/fqv_$id.$ext');
+          if (c.existsSync() && c.lengthSync() > 0) return c.path;
+        }
+        final s = await db.ref('posts/$id/url').get();
+        final data = asStrOrNull(s.value);
+        if (data == null) return null;
+        final path = '${dir.path}/fqv_$id.${extFromMime(mimeOfDataUrl(data, 'video/mp4'))}';
+        final ok = await compute(writeDataUrlToFile, [data, path]);
+        return ok ? path : null;
+      } catch (_) {
+        return null;
+      }
+    }();
+    _vidFutures[id] = f;
+    f.then((v) {
+      if (v == null) _vidFutures.remove(id);
+    });
+    return f;
   }
 
   /// Gönderilerin tek bir küçük alanını (uid, type, caption) toplu okur.
@@ -389,13 +470,8 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
 
   /// En yeni [limit] gönderi.
   Future<List<Post>> loadFeed({int limit = 30, bool force = false}) async {
-    final s = await db.ref('posts').orderByKey().limitToLast(limit).get().timeout(const Duration(seconds: 30));
-    final list = <Post>[];
-    for (final c in s.children) {
-      final p = Post.fromMap(c.key!, asMap(c.value));
-      if (p.isValid && p.uid.isNotEmpty) list.add(p);
-    }
-    list.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+    final keys = await _postKeys();
+    final list = await _fetchPosts(keys.reversed.take(limit));
     unawaited(warmUsers(list.map((p) => p.uid)));
     return list;
   }
@@ -434,14 +510,36 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     return _postField(keys.reversed.take(scan).toList(), 'caption');
   }
 
-  Future<Post?> loadPost(String id) async {
-    final s = await db.ref('posts/$id').get();
-    if (!s.exists) return null;
-    return Post.fromMap(id, asMap(s.value));
-  }
+  Future<Post?> loadPost(String id) => _fetchPostMeta(id);
 
-  Stream<Post?> watchPost(String id) =>
-      db.ref('posts/$id').onValue.map((e) => e.snapshot.exists ? Post.fromMap(id, asMap(e.snapshot.value)) : null);
+  /// Yorumları canlı izler (gönderinin medyası indirilmez).
+  Stream<Post?> watchPost(String id) async* {
+    final meta = await _fetchPostMeta(id);
+    if (meta == null) {
+      yield null;
+      return;
+    }
+    await for (final e in db.ref('posts/$id/comments').onValue) {
+      final comments = asMap(e.snapshot.value)
+          .entries
+          .map((x) => Comment.fromMap(x.key, asMap(x.value)))
+          .toList()
+        ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+      yield Post(
+        id: meta.id,
+        uid: meta.uid,
+        username: meta.username,
+        url: meta.url,
+        caption: meta.caption,
+        type: meta.type,
+        likes: meta.likes,
+        likedBy: meta.likedBy,
+        comments: comments,
+        timestamp: meta.timestamp,
+        edited: meta.edited,
+      );
+    }
+  }
 
   Future<void> createPost({required String url, required String caption, required String type}) async {
     final u = uid;
