@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import '../core/utils.dart';
 import 'app_state.dart';
 import 'native_bridge.dart';
+import 'offline_store.dart';
 import 'notification_service.dart';
 
 class DmMessage {
@@ -26,6 +27,15 @@ class DmMessage {
     this.postId = '',
     this.ts = 0,
   });
+
+  Map<String, Object?> toMap() => {
+        'from': from,
+        'text': text,
+        'type': type,
+        if (url.isNotEmpty) 'url': url,
+        if (postId.isNotEmpty) 'postId': postId,
+        'ts': ts,
+      };
 
   factory DmMessage.fromMap(String id, Map<String, dynamic> m) => DmMessage(
         id: id,
@@ -54,6 +64,14 @@ class DmThread {
     this.lastFrom = '',
     this.unread = 0,
   });
+
+  Map<String, Object?> toMap() => {
+        'with': other,
+        'lastText': lastText,
+        'lastTs': lastTs,
+        'lastFrom': lastFrom,
+        'unread': unread,
+      };
 
   factory DmThread.fromMap(String id, Map<String, dynamic> m) => DmThread(
         chatId: id,
@@ -109,6 +127,20 @@ class DmService extends ChangeNotifier {
       return;
     }
     var first = true;
+    // İnternetsizken de sohbet listesi görünsün: cihazdaki kopya.
+    OfflineStore.read('dm_threads_$u').then((v) {
+      if (loaded || _uid != u) return;
+      final list = asMap(v)
+          .entries
+          .map((x) => DmThread.fromMap(x.key, asMap(x.value)))
+          .where((t) => t.other.isNotEmpty)
+          .toList()
+        ..sort((a, b) => b.lastTs.compareTo(a.lastTs));
+      if (list.isEmpty) return;
+      threads = list;
+      loaded = true;
+      notifyListeners();
+    });
     _sub = db.ref('userChats/$u').onValue.listen((e) {
       final prev = {for (final t in threads) t.chatId: t};
       final list = asMap(e.snapshot.value)
@@ -128,6 +160,7 @@ class DmService extends ChangeNotifier {
       loaded = true;
       app.warmUsers(list.map((t) => t.other));
       notifyListeners();
+      OfflineStore.write('dm_threads_$u', {for (final t in list.take(30)) t.chatId: t.toMap()});
     }, onError: (Object e) {
       loaded = true;
       error = 'Mesajlar yüklenemedi. Veritabanı kurallarında "userChats" ve "chats" yollarına izin olmalı.';

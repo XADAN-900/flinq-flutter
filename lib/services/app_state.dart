@@ -16,6 +16,8 @@ import '../core/firebase_config.dart';
 import '../core/utils.dart';
 import '../models/models.dart';
 import 'native_bridge.dart';
+import 'net_status.dart';
+import 'offline_store.dart';
 import 'notification_service.dart';
 
 class AppState extends ChangeNotifier with WidgetsBindingObserver {
@@ -25,6 +27,11 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     final ti = prefs.getInt('themeMode') ?? 0;
     _themeMode = (ti >= 0 && ti < ThemeMode.values.length) ? ThemeMode.values[ti] : ThemeMode.system;
     WidgetsBinding.instance.addObserver(this);
+    NetStatus.instance.online.addListener(notifyListeners);
+    NetStatus.instance.onBack.add(() {
+      db.goOnline();
+      invalidatePosts();
+    });
     _authSub = auth.authStateChanges().listen(_onAuth);
   }
 
@@ -41,8 +48,8 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   Map<String, List<Story>> stories = {};
   final Map<String, FUser> _users = {};
   bool foreground = true;
-  bool connected = true;
-  Timer? _offlineTimer;
+  /// Gerçek internet durumu (var / yok).
+  bool get connected => NetStatus.instance.online.value;
 
   final _subs = <StreamSubscription>[];
   bool _notifInit = false;
@@ -153,26 +160,6 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       stories = out;
       notifyListeners();
     }, onError: (_) {}));
-    _subs.add(db.ref('.info/connected').onValue.listen((e) {
-      final c = e.snapshot.value == true;
-      _offlineTimer?.cancel();
-      if (c) {
-        if (!connected) {
-          connected = true;
-          notifyListeners();
-        }
-      } else {
-        // Kısa kopmalar (uygulamaya dönüş, ağ geçişi, video yüklerken) uyarı göstermesin:
-        // sadece 8 saniyeden uzun süren kopmada "İnternet bağlantısı yok" çıkar.
-        _offlineTimer = Timer(const Duration(seconds: 8), () {
-          if (connected) {
-            connected = false;
-            notifyListeners();
-          }
-          db.goOnline();
-        });
-      }
-    }));
     unawaited(NotificationService.registerToken(db, uid));
     syncNative();
   }
@@ -295,6 +282,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> logout() async {
     final u = uid;
     await NativeBridge.clearSession();
+    await OfflineStore.clearAll();
     if (u != null) await NotificationService.unregisterToken(db, u);
     await NotificationService.cancelAll();
     await auth.signOut();
@@ -401,13 +389,15 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   /// ekranda gösterileceği zaman [postImage] / [postVideoPath] ile tek tek indirilir.
   Future<Post?> _fetchPostMeta(String id) async {
     try {
-      final snaps = await Future.wait(_metaFields.map((f) => db.ref('posts/$id/$f').get()));
+      final snaps = await Future.wait(_metaFields.map((f) => db.ref('posts/$id/$f').get()))
+          .timeout(const Duration(seconds: 15));
       final m = <String, dynamic>{};
       for (var i = 0; i < _metaFields.length; i++) {
         if (snaps[i].exists) m[_metaFields[i]] = snaps[i].value;
       }
       if (m['uid'] == null) return null;
       final p = Post.fromMap(id, m);
+      if (p.isValid) _metaRaw[id] = m;
       return p.isValid ? p : null;
     } catch (_) {
       return null;
@@ -436,9 +426,21 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     final hit = _imgFutures[id];
     if (hit != null) return hit;
     final f = () async {
+      // Önce cihazdaki kopya (internetsizken de görünsün, hem de daha hızlı).
+      final disk = await _imgFile(id);
+      try {
+        if (disk != null && await disk.exists()) {
+          final b = await disk.readAsBytes();
+          if (b.isNotEmpty) return b;
+        }
+      } catch (_) {}
       try {
         final s = await db.ref('posts/$id/url').get();
-        return decodeDataUrl(asStrOrNull(s.value));
+        final bytes = decodeDataUrl(asStrOrNull(s.value));
+        if (bytes != null && disk != null) {
+          unawaited(disk.writeAsBytes(bytes, flush: true).then((_) => _pruneImages()).catchError((_) {}));
+        }
+        return bytes;
       } catch (_) {
         return null;
       }
@@ -449,6 +451,44 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       _imgFutures.remove(_imgOrder.removeAt(0));
     }
     return f;
+  }
+
+  Directory? _imgDir;
+
+  Future<File?> _imgFile(String id) async {
+    try {
+      if (_imgDir == null) {
+        final root = await getApplicationSupportDirectory();
+        final d = Directory('${root.path}/post_images');
+        if (!await d.exists()) await d.create(recursive: true);
+        _imgDir = d;
+      }
+      return File('${_imgDir!.path}/$id.img');
+    } catch (_) {
+      return null;
+    }
+  }
+
+  bool _pruning = false;
+
+  /// Cihazda en fazla 80 gönderi fotoğrafı tutulur (en eskiler silinir).
+  Future<void> _pruneImages() async {
+    if (_pruning || _imgDir == null) return;
+    _pruning = true;
+    try {
+      final files = _imgDir!.listSync().whereType<File>().toList();
+      if (files.length > 80) {
+        files.sort((a, b) => b.statSync().modified.compareTo(a.statSync().modified));
+        for (final f in files.skip(80)) {
+          try {
+            f.deleteSync();
+          } catch (_) {}
+        }
+      }
+    } catch (_) {
+    } finally {
+      _pruning = false;
+    }
   }
 
   /// Gönderi videosunu geçici dosyaya indirir ve yolunu döndürür (diskte önbellekli).
@@ -499,10 +539,77 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
 
   /// En yeni [limit] gönderi.
   Future<List<Post>> loadFeed({int limit = 30, bool force = false}) async {
+    if (!connected) {
+      final cached = await _loadFeedCache();
+      if (cached.isNotEmpty) return cached;
+    }
     final keys = await _postKeys();
-    final list = await _fetchPosts(keys.reversed.take(limit));
+    final list = keys.isEmpty ? <Post>[] : await _fetchPosts(keys.reversed.take(limit));
+    if (list.isEmpty) {
+      // İnternet yok: en son kaydedilen akışı göster.
+      final cached = await _loadFeedCache();
+      if (cached.isNotEmpty) return cached;
+    } else {
+      unawaited(_saveFeedCache(list));
+    }
     unawaited(warmUsers(list.map((p) => p.uid)));
     return list;
+  }
+
+  // ---- Çevrimdışı akış: son gönderiler cihazda saklanır ----
+  final Map<String, Map<String, dynamic>> _metaRaw = {};
+
+  Future<void> _saveFeedCache(List<Post> list) async {
+    final u = uid;
+    if (u == null) return;
+    final posts = <Object?>[];
+    final authors = <String, Object?>{};
+    for (final p in list.take(25)) {
+      final m = _metaRaw[p.id];
+      if (m == null) continue;
+      posts.add({'id': p.id, 'm': OfflineStore.plain(m)});
+      final a = _users[p.uid];
+      if (a != null && !authors.containsKey(a.uid)) {
+        final ph = a.photo;
+        authors[a.uid] = {
+          'username': a.username,
+          if (ph != null && ph.length < 150 * 1024) 'profilePhotoUrl': ph,
+          'bio': a.bio,
+          'verified': a.verified,
+        };
+      }
+      // Fotoğrafı diske al (zaten varsa dokunmaz).
+      if (p.type != 'video') unawaited(postImage(p.id));
+    }
+    await OfflineStore.write('feed_$u', {'posts': posts, 'users': authors});
+  }
+
+  Future<List<Post>> _loadFeedCache() async {
+    final u = uid;
+    if (u == null) return const [];
+    final data = asMap(await OfflineStore.read('feed_$u'));
+    asMap(data['users']).forEach((k, v) {
+      if (!_users.containsKey(k) || _stubs.contains(k)) {
+        _users[k] = FUser.fromMap(k, asMap(v));
+        _stubs.remove(k);
+      }
+    });
+    final out = <Post>[];
+    final posts = data['posts'];
+    if (posts is List) {
+      for (final e in posts) {
+        final m = asMap(e);
+        final id = asStr(m['id']);
+        if (id.isEmpty) continue;
+        final meta = asMap(m['m']);
+        final p = Post.fromMap(id, meta);
+        if (p.isValid) {
+          _metaRaw[id] = meta;
+          out.add(p);
+        }
+      }
+    }
+    return out;
   }
 
   /// Bir kullanıcının gönderileri (önce sadece "uid" alanları okunur).

@@ -11,6 +11,7 @@ import '../core/utils.dart';
 import '../models/models.dart';
 import '../services/app_state.dart';
 import '../services/dm_service.dart';
+import '../services/offline_store.dart';
 import '../widgets/common.dart';
 import '../widgets/post_card.dart';
 import '../widgets/post_image.dart';
@@ -365,6 +366,7 @@ class _DmChatScreenState extends State<DmChatScreen> with WidgetsBindingObserver
     dm.activeChat = chatId;
     WidgetsBinding.instance.addObserver(this);
     app.userById(widget.otherUid);
+    _loadOffline();
     final q = dm.messages(chatId).orderByKey().limitToLast(30);
     q.get().then((_) {
       if (mounted) setState(() => _loaded = true);
@@ -378,6 +380,7 @@ class _DmChatScreenState extends State<DmChatScreen> with WidgetsBindingObserver
       _msgs.add(m);
       _msgs.sort((a, b) => a.id.compareTo(b.id));
       if (m.from != app.uid) dm.markRead(chatId);
+      _saveOfflineSoon();
       if (mounted) setState(() {});
     }, onError: (_) {}));
     _subs.add(q.onChildChanged.listen((e) {
@@ -385,17 +388,19 @@ class _DmChatScreenState extends State<DmChatScreen> with WidgetsBindingObserver
       final i = _msgs.indexWhere((m) => m.id == k);
       if (i >= 0 && k != null) {
         _msgs[i] = DmMessage.fromMap(k, asMap(e.snapshot.value));
+        _saveOfflineSoon();
         if (mounted) setState(() {});
       }
     }, onError: (_) {}));
     _subs.add(q.onChildRemoved.listen((e) async {
       final k = e.snapshot.key;
-      if (k == null) return;
+      if (k == null || !app.connected) return;
       try {
         final s = await dm.messages(chatId).child(k).get();
         if (s.exists) return; // pencereden düştü, silinmedi
       } catch (_) {}
       _msgs.removeWhere((m) => m.id == k);
+      _saveOfflineSoon();
       if (mounted) setState(() {});
     }, onError: (_) {}));
     _subs.add(app.db.ref('chats/$chatId/seen/${widget.otherUid}').onValue.listen((e) {
@@ -418,11 +423,58 @@ class _DmChatScreenState extends State<DmChatScreen> with WidgetsBindingObserver
     if (state == AppLifecycleState.resumed) dm.markRead(chatId);
   }
 
+  // ---------- Çevrimdışı kopya: internet yokken de son mesajlar görünsün ----------
+  Timer? _offlineSave;
+
+  Future<void> _loadOffline() async {
+    final v = await OfflineStore.read('dmc_$chatId');
+    if (!mounted || v is! List) return;
+    var added = false;
+    for (final e in v) {
+      final m = asMap(e);
+      final id = asStr(m['id']);
+      if (id.isEmpty || _msgs.any((x) => x.id == id)) continue;
+      _msgs.add(DmMessage.fromMap(id, m));
+      added = true;
+    }
+    if (added) {
+      _msgs.sort((a, b) => a.id.compareTo(b.id));
+      setState(() => _loaded = true);
+    }
+  }
+
+  void _saveOfflineSoon() {
+    _offlineSave?.cancel();
+    _offlineSave = Timer(const Duration(seconds: 2), _writeOffline);
+  }
+
+  void _writeOffline() {
+    var media = 0;
+    final list = <Object?>[];
+    for (final m in _msgs.reversed.take(30)) {
+      final map = <String, Object?>{'id': m.id, ...m.toMap()};
+      if (m.url.isNotEmpty) {
+        if (m.url.length > 1500 * 1024 || media + m.url.length > 5 * 1024 * 1024) {
+          map.remove('url');
+        } else {
+          media += m.url.length;
+        }
+      }
+      list.add(map);
+    }
+    OfflineStore.write('dmc_$chatId', list.reversed.toList());
+    OfflineStore.prune('dmc_', 15);
+  }
+
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     if (dm.activeChat == chatId) dm.activeChat = null;
     dm.setTyping(chatId, false);
+    if (_offlineSave?.isActive ?? false) {
+      _offlineSave!.cancel();
+      _writeOffline();
+    }
     for (final s in _subs) {
       s.cancel();
     }

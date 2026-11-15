@@ -16,6 +16,7 @@ import 'screens/auth_screen.dart';
 import 'screens/home_screen.dart';
 import 'services/app_state.dart';
 import 'services/native_bridge.dart';
+import 'services/net_status.dart';
 import 'services/dm_service.dart';
 import 'services/notification_service.dart';
 import 'widgets/feed_video.dart';
@@ -32,7 +33,7 @@ Future<void> main() async {
   try {
     final db = FirebaseDatabase.instanceFor(app: Firebase.app(), databaseURL: FirebaseConfig.databaseUrl);
     db.setPersistenceEnabled(true);
-    db.setPersistenceCacheSizeBytes(40 * 1024 * 1024);
+    db.setPersistenceCacheSizeBytes(100 * 1024 * 1024);
   } catch (_) {}
   if (FirebaseConfig.hasAndroidAppId) {
     FirebaseMessaging.onBackgroundMessage(firebaseBackgroundHandler);
@@ -48,6 +49,7 @@ Future<void> main() async {
   final dm = DmService(app);
   NotificationService.onTap = (payload) => _openFromNotification(app, payload);
   NativeBridge.init();
+  NetStatus.instance.start();
   NativeBridge.opens.stream.listen((id) => _openFromNotification(app, id));
   runApp(FlinQApp(app: app, dm: dm));
   Future.delayed(const Duration(seconds: 8), () => _uploadLastCrash(app));

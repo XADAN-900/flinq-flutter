@@ -89,7 +89,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: const Padding(
                   padding: EdgeInsets.symmetric(vertical: 5),
                   child: Center(
-                    child: Text('İnternet bağlantısı yok',
+                    child: Text('İnternet yok',
                         style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
                   ),
                 ),
