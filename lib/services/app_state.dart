@@ -110,6 +110,14 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   void _start(String uid) {
+    // Bağlantı kopunca (uygulama kapanınca) sunucu "çevrimdışı" yazar.
+    _subs.add(db.ref('.info/connected').onValue.listen((e) {
+      if (e.snapshot.value != true) return;
+      final r = db.ref('users/$uid');
+      r.child('isOnline').onDisconnect().set(false);
+      r.child('lastSeen').onDisconnect().set(ServerValue.timestamp);
+      _setPresence(true);
+    }));
     _subs.add(db.ref('users/$uid').onValue.listen((e) {
       final m = asMap(e.snapshot.value);
       if (m.isNotEmpty) {
@@ -208,6 +216,18 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     foreground = state == AppLifecycleState.resumed;
+    if (state == AppLifecycleState.resumed) _setPresence(true);
+    if (state == AppLifecycleState.paused) _setPresence(false);
+  }
+
+  /// Çevrimiçi durumu (yönetim panelinde canlı görünür).
+  void _setPresence(bool online) {
+    final u = uid;
+    if (u == null) return;
+    db.ref('users/$u').update({
+      'isOnline': online,
+      'lastSeen': ServerValue.timestamp,
+    }).catchError((_) {});
   }
 
   Future<String?> login(String emailOrUsername, String password) async {
@@ -312,6 +332,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> logout() async {
+    _setPresence(false);
     final u = uid;
     await NativeBridge.clearSession();
     await OfflineStore.clearAll();
