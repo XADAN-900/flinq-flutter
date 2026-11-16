@@ -237,15 +237,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     final tabs = <Widget>[
       const Tab(icon: Icon(Icons.grid_on_rounded)),
-      const Tab(icon: Icon(Icons.slow_motion_video_rounded)),
+      const Tab(icon: Icon(Icons.bolt_rounded)),
       if (mine) const Tab(icon: Icon(Icons.bookmark_border_rounded)),
     ];
-    final videos = (_posts ?? const <Post>[]).where((p) => p.type == 'video').toList();
+    // İkinci sekme: kullanıcının Fly (metin) gönderileri, tweet gibi liste halinde.
+    final flies = (_posts ?? const <Post>[]).where((p) => p.type == 'text').toList();
     final views = <Widget>[
       postsTab,
-      videos.isEmpty
-          ? const EmptyState(icon: Icons.slow_motion_video_rounded, title: 'Video yok')
-          : PostGrid(posts: videos),
+      flies.isEmpty
+          ? EmptyState(
+              icon: Icons.bolt_rounded,
+              title: mine ? 'İlk Fly’ını paylaş' : 'Henüz Fly yok',
+              subtitle: mine ? 'Paylaştığın Fly’lar burada görünür.' : null,
+            )
+          : ListView.builder(
+              padding: const EdgeInsets.only(top: 6),
+              itemCount: flies.length,
+              itemBuilder: (_, i) => PostCard(post: flies[i]),
+            ),
       if (mine)
         Builder(builder: (_) {
           if (_saved == null) {
