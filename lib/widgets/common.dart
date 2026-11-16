@@ -1,5 +1,6 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../core/theme.dart';
 import '../core/utils.dart';
@@ -152,6 +153,8 @@ class _RichCaptionState extends State<RichCaption> {
         r = TapGestureRecognizer()..onTap = () => widget.onHashtag!(t.substring(1));
       } else if (t.startsWith('@') && widget.onMention != null) {
         r = TapGestureRecognizer()..onTap = () => widget.onMention!(t.substring(1));
+      } else if (t.startsWith('http') || t.startsWith('www.')) {
+        r = TapGestureRecognizer()..onTap = () => openUrl(t);
       }
       spans.add(TextSpan(text: t, style: link, recognizer: r));
       last = m.end;
@@ -268,4 +271,18 @@ class EmptyState extends StatelessWidget {
           ),
         ),
       );
+}
+
+
+/// Bir bağlantıyı telefonun tarayıcısında açar.
+Future<void> openUrl(String raw) async {
+  var s = raw.trim();
+  if (s.startsWith('www.')) s = 'https://$s';
+  // Sondaki noktalama işaretlerini at.
+  s = s.replaceAll(RegExp(r'[),.!?]+$'), '');
+  final uri = Uri.tryParse(s);
+  if (uri == null) return;
+  try {
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  } catch (_) {}
 }

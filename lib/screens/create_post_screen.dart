@@ -114,7 +114,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
               segments: const [
                 ButtonSegment(value: 0, icon: Icon(Icons.photo_outlined), label: Text('Fotoğraf')),
                 ButtonSegment(value: 1, icon: Icon(Icons.videocam_outlined), label: Text('Video')),
-                ButtonSegment(value: 2, icon: Icon(Icons.text_fields_rounded), label: Text('Metin')),
+                ButtonSegment(value: 2, icon: Icon(Icons.text_fields_rounded), label: Text('Fly')),
               ],
               selected: {_mode},
               onSelectionChanged: (s) => setState(() => _mode = s.first),

@@ -224,6 +224,8 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
     Share.share(text);
   }
 
+  // Fly (metin gönderisi) için üstteki çift dokunuşla beğeni, gövde tweet gibi sola yaslı.
+
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
@@ -239,7 +241,18 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
             onMuteChanged: (m) => app.setPref('feedMuted', m),
           )
         : _p.type == 'text'
-            ? AspectRatio(aspectRatio: 1, child: TextPostCard(text: _p.caption, seed: _p.id))
+            ? Container(
+                width: double.infinity,
+                padding: const EdgeInsets.fromLTRB(16, 2, 16, 14),
+                alignment: Alignment.centerLeft,
+                child: RichCaption(
+                  text: _p.caption,
+                  style: const TextStyle(fontSize: 18, height: 1.4),
+                  trimAt: 1200,
+                  onHashtag: (t) => openHashtag(context, t),
+                  onMention: (u) => openProfileByUsername(context, u),
+                ),
+              )
             : _image();
 
     return Column(
