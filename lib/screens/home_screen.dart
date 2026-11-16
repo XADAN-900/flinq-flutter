@@ -309,10 +309,15 @@ class FeedScreenState extends State<FeedScreen> {
                     );
                   }
                   final p = posts[i];
-                  return PostCard(
-                    key: ValueKey(p.id),
-                    post: p,
-                    onDeleted: () => setState(() => _posts.removeWhere((x) => x.id == p.id)),
+                  return Column(
+                    children: [
+                      PostCard(
+                        key: ValueKey(p.id),
+                        post: p,
+                        onDeleted: () => setState(() => _posts.removeWhere((x) => x.id == p.id)),
+                      ),
+                      Divider(height: 1, thickness: 0.6, color: Theme.of(context).dividerColor.withValues(alpha: 0.5)),
+                    ],
                   );
                 },
               ),

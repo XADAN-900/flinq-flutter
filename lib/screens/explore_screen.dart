@@ -140,6 +140,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
   Map<String, String> _captions = {};
   bool _loading = true;
   String _query = '';
+  List<Post> _flies = const [];
 
   bool _started = false;
 
@@ -176,7 +177,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
     posts.sort((a, b) => score(b).compareTo(score(a)));
     setState(() {
-      _posts = posts;
+      _posts = posts.where((p) => p.type != 'text').toList();
+      _flies = posts.where((p) => p.type == 'text').toList()
+        ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
       _users = users;
       _captions = caps;
       _loading = false;
@@ -211,7 +214,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
           onChanged: (v) => setState(() => _query = v.trim()),
           textInputAction: TextInputAction.search,
           decoration: InputDecoration(
-            hintText: 'Kişi veya #etiket ara',
+            hintText: 'Kişi, #etiket veya Fly ara',
             isDense: true,
             prefixIcon: const Icon(Icons.search_rounded),
             suffixIcon: _query.isEmpty
@@ -245,7 +248,17 @@ class _ExploreScreenState extends State<ExploreScreen> {
                         subtitle: u.bio.isEmpty ? null : Text(u.bio, maxLines: 1, overflow: TextOverflow.ellipsis),
                         onTap: () => openProfile(context, u.uid),
                       ),
-                    if (tagList.isEmpty && userResults.isEmpty)
+                    if (!tagMode)
+                      for (final fly in _flies.where((p) => p.caption.toLowerCase().contains(q)).take(20))
+                        ListTile(
+                          leading: const CircleAvatar(child: Icon(Icons.bolt_rounded)),
+                          title: Text('@${fly.username}', style: const TextStyle(fontWeight: FontWeight.w700)),
+                          subtitle: Text(fly.caption, maxLines: 2, overflow: TextOverflow.ellipsis),
+                          onTap: () => Navigator.push(context,
+                              MaterialPageRoute(builder: (_) => PostListScreen(posts: [fly], title: 'Fly'))),
+                        ),
+                    if (tagList.isEmpty && userResults.isEmpty &&
+                        (tagMode || _flies.where((p) => p.caption.toLowerCase().contains(q)).isEmpty))
                       const Padding(
                         padding: EdgeInsets.only(top: 60),
                         child: EmptyState(icon: Icons.search_off_rounded, title: 'Sonuç bulunamadı'),
