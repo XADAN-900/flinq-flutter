@@ -107,9 +107,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       ),
       body: Column(
         children: [
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
             child: Row(
               children: [
                 for (final (k, label) in const [
@@ -118,13 +117,23 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   ('comment', 'Yorumlar'),
                   ('follow', 'Takipler'),
                 ])
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: ChoiceChip(
-                      label: Text(label),
-                      selected: _filter == k,
-                      showCheckmark: false,
-                      onSelected: (_) => setState(() => _filter = k),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 3),
+                      child: ChoiceChip(
+                        label: SizedBox(
+                          width: double.infinity,
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(label, maxLines: 1, softWrap: false),
+                          ),
+                        ),
+                        labelPadding: EdgeInsets.zero,
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+                        selected: _filter == k,
+                        showCheckmark: false,
+                        onSelected: (_) => setState(() => _filter = k),
+                      ),
                     ),
                   ),
               ],
