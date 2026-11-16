@@ -11,6 +11,7 @@ import '../screens/dm_screens.dart';
 import '../screens/explore_screen.dart';
 import '../screens/profile_screen.dart';
 import '../services/app_state.dart';
+import 'report_sheet.dart';
 import 'common.dart';
 import 'feed_video.dart';
 import 'post_image.dart';
@@ -180,6 +181,20 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
                 onTap: () {
                   Navigator.pop(ctx);
                   app.toggleFollow(_p.uid);
+                },
+              ),
+            if (!mine)
+              ListTile(
+                leading: const Icon(Icons.flag_outlined, color: FColors.danger),
+                title: const Text('Şikayet et', style: TextStyle(color: FColors.danger)),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  final reason = await pickReportReason(context, title: 'Gönderiyi şikayet et');
+                  if (reason == null) return;
+                  await app
+                      .report(type: 'post', targetUid: _p.uid, path: 'posts/${_p.id}', preview: _p.caption, reason: reason)
+                      .catchError((_) {});
+                  if (mounted) showSnack(context, 'Şikayetin yöneticiye iletildi. Teşekkürler.');
                 },
               ),
             if (mine)

@@ -219,9 +219,14 @@ class FeedScreenState extends State<FeedScreen> {
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
+    // "Takip ettiklerin": sadece takip ettiğin kişilerin gönderileri (kendi gönderilerin hariç).
     final posts = _followingOnly
-        ? _posts.where((p) => app.following.contains(p.uid) || p.uid == app.uid).toList()
+        ? _posts.where((p) => p.uid != app.uid && app.following.contains(p.uid)).toList()
         : _posts;
+    // Az sonuç varsa ve daha eski gönderiler duruyorsa kendiliğinden biraz daha yükle.
+    if (_followingOnly && posts.length < 8 && !_end && !_loading && !_loadingMore && _limit < 120) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _more());
+    }
     final unread = app.unreadCount;
     final dmUnread = context.watch<DmService>().unreadTotal;
     return Scaffold(
@@ -232,8 +237,9 @@ class FeedScreenState extends State<FeedScreen> {
             icon: Badge(
               isLabelVisible: unread > 0,
               label: Text(unread > 99 ? '99+' : '$unread'),
-              child: const Icon(Icons.favorite_border_rounded, size: 28),
+              child: const Icon(Icons.notifications_none_rounded, size: 28),
             ),
+            tooltip: 'Bildirimler',
             onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsScreen())),
           ),
           IconButton(

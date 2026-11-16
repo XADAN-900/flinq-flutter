@@ -5,6 +5,7 @@ import 'package:share_plus/share_plus.dart';
 import '../core/theme.dart';
 import '../models/models.dart';
 import '../services/app_state.dart';
+import '../widgets/report_sheet.dart';
 import '../widgets/common.dart';
 import '../widgets/post_card.dart';
 import 'dm_screens.dart';
@@ -276,6 +277,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
             if (!mine)
               PopupMenuButton<String>(
                 onSelected: (v) async {
+                  if (v == 'report') {
+                    final reason = await pickReportReason(context, title: '@${u.username} şikayet et');
+                    if (reason == null) return;
+                    await app.report(type: 'user', targetUid: widget.uid, preview: u.bio, reason: reason).catchError((_) {});
+                    if (context.mounted) showSnack(context, 'Şikayetin yöneticiye iletildi. Teşekkürler.');
+                    return;
+                  }
                   if (v != 'block') return;
                   final ok = await confirmDialog(context,
                       title: blocked ? 'Engeli kaldır' : '@${u.username} engellensin mi?',
@@ -290,6 +298,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   _load();
                 },
                 itemBuilder: (_) => [
+                  const PopupMenuItem(value: 'report', child: Text('Şikayet et')),
                   PopupMenuItem(value: 'block', child: Text(blocked ? 'Engeli kaldır' : 'Engelle')),
                 ],
               ),

@@ -331,8 +331,75 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
-  Future<void> logout() async {
-    _setPresence(false);
+  /// Bir gönderiyi / kişiyi / yorumu yöneticiye şikayet eder (yönetim panelinde görünür).
+  Future<void> report({
+    required String type,
+    required String targetUid,
+    String path = '',
+    String preview = '',
+    required String reason,
+  }) async {
+    final u = uid;
+    if (u == null) return;
+    await db.ref('reports').push().set({
+      'app': 'FlinQ',
+      'type': type,
+      'targetUid': targetUid,
+      'targetName': _users[targetUid]?.username ?? '',
+      'path': path,
+      'preview': preview.length > 400 ? preview.substring(0, 400) : preview,
+      'reason': reason,
+      'from': u,
+      'fromName': username,
+      'ts': ServerValue.timestamp,
+    });
+  }
+
+  /// Hesabı kalıcı olarak siler: gönderiler, hikayeler, profil, takipler, giriş hesabı.
+  Future<String?> deleteMyAccount(String password) async {
+    final current = user;
+    final u = uid;
+    if (current == null || u == null) return 'Oturum yok.';
+    try {
+      await current.reauthenticateWithCredential(
+          EmailAuthProvider.credential(email: current.email ?? '', password: password));
+    } on FirebaseAuthException catch (e) {
+      return e.code == 'network-request-failed' ? 'İnternet bağlantını kontrol et.' : 'Şifre hatalı.';
+    }
+    try {
+      await db.ref('users/$u/isOnline').onDisconnect().cancel();
+      await db.ref('users/$u/lastSeen').onDisconnect().cancel();
+      final name = username.toLowerCase();
+      final up = <String, Object?>{
+        'users/$u': null,
+        'usernames/$name': null,
+        'emails/$name': null,
+        'stories/$u': null,
+        'storyMedia/$u': null,
+        'following/$u': null,
+        'notifications/$u': null,
+        'userChats/$u': null,
+        'fcmTokens/$u': null,
+      };
+      for (final other in following) {
+        up['followers/$other/$u'] = null;
+      }
+      final keys = await _postKeys();
+      final owners = await Future.wait(keys.map((k) => db.ref('posts/$k/uid').get().then((s) => s.value).catchError((_) => null)));
+      for (var i = 0; i < keys.length; i++) {
+        if (owners[i] == u) up['posts/${keys[i]}'] = null;
+      }
+      await db.ref().update(up);
+      await current.delete();
+    } catch (e) {
+      return 'Hesap silinemedi: $e';
+    }
+    await logout(deleted: true);
+    return null;
+  }
+
+  Future<void> logout({bool deleted = false}) async {
+    if (!deleted) _setPresence(false);
     final u = uid;
     await NativeBridge.clearSession();
     await OfflineStore.clearAll();

@@ -133,7 +133,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           Expanded(
             child: list.isEmpty
                 ? const EmptyState(
-                    icon: Icons.favorite_border_rounded,
+                    icon: Icons.notifications_none_rounded,
                     title: 'Henüz bildirim yok',
                     subtitle: 'Biri gönderini beğendiğinde ya da seni takip ettiğinde burada görürsün.',
                   )

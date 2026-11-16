@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../core/theme.dart';
 import '../services/app_state.dart';
+import '../services/app_guard.dart';
 import '../services/native_bridge.dart';
 import '../widgets/common.dart';
 import 'edit_profile_screen.dart';
@@ -110,7 +111,7 @@ class SettingsScreen extends StatelessWidget {
           const ListTile(
             leading: Icon(Icons.info_outline),
             title: Text('FlinQ'),
-            subtitle: Text('Sürüm 2.0.0 · Flutter'),
+            subtitle: Text('Sürüm 2.0 · derleme ${AppGuard.build}'),
           ),
           ListTile(
             leading: const Icon(Icons.logout_rounded, color: FColors.danger),
@@ -121,6 +122,26 @@ class SettingsScreen extends StatelessWidget {
               if (!ok) return;
               if (context.mounted) Navigator.of(context).popUntil((r) => r.isFirst);
               await app.logout();
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.delete_forever_rounded, color: FColors.danger),
+            title: const Text('Hesabımı sil', style: TextStyle(color: FColors.danger, fontWeight: FontWeight.w600)),
+            subtitle: const Text('Gönderilerin, hikayelerin ve profilin kalıcı olarak silinir'),
+            onTap: () async {
+              final ok = await confirmDialog(context,
+                  title: 'Hesabını sil', message: 'Hesabın ve tüm gönderilerin kalıcı olarak silinecek. Bu işlem geri alınamaz.',
+                  confirmText: 'Devam', destructive: true);
+              if (!ok || !context.mounted) return;
+              final pw = await promptText(context, title: 'Şifreni yaz', hint: 'Onaylamak için şifren', obscure: true, confirmText: 'Hesabımı sil');
+              if (pw == null || pw.isEmpty || !context.mounted) return;
+              final nav = Navigator.of(context);
+              final err = await app.deleteMyAccount(pw);
+              if (err != null) {
+                if (context.mounted) showSnack(context, err, error: true);
+              } else {
+                nav.popUntil((r) => r.isFirst);
+              }
             },
           ),
           const SizedBox(height: 30),

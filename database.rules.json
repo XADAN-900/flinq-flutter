@@ -103,7 +103,7 @@
     "chats": {
       "$chat": {
         ".read": "auth != null && ($chat.beginsWith(auth.uid + '_') || $chat.endsWith('_' + auth.uid))",
-        ".write": "auth != null && ($chat.beginsWith(auth.uid + '_') || $chat.endsWith('_' + auth.uid)) && !root.child('users').child($chat.replace(auth.uid, '').replace('_', '')).child('blocked').child(auth.uid).exists()"
+        ".write": "(auth != null && ($chat.beginsWith(auth.uid + '_') || $chat.endsWith('_' + auth.uid)) && !root.child('users').child($chat.replace(auth.uid, '').replace('_', '')).child('blocked').child(auth.uid).exists()) || (auth != null && (auth.token.email === 'admin@panel.xadan.app' || root.child('admins').child(auth.uid).exists()))"
       }
     },
     "fcmTokens": {
@@ -132,6 +132,13 @@
     "announcements": {
       ".read": "auth != null",
       ".write": "(auth != null && (auth.token.email === 'admin@panel.xadan.app' || root.child('admins').child(auth.uid).exists()))"
+    },
+    "reports": {
+      ".read": "(auth != null && (auth.token.email === 'admin@panel.xadan.app' || root.child('admins').child(auth.uid).exists()))",
+      ".write": "(auth != null && (auth.token.email === 'admin@panel.xadan.app' || root.child('admins').child(auth.uid).exists()))",
+      "$r": {
+        ".write": "auth != null && !data.exists()"
+      }
     }
   }
 }
