@@ -174,29 +174,19 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           ],
           if (_mode == 2)
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Column(
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(18),
-                    child: AspectRatio(
-                      aspectRatio: 1,
-                      child: TextPostCard(
-                        text: _text.text.isEmpty ? 'Aklından ne geçiyor?' : _text.text,
-                        seed: 'preview_${_text.text.length % 6}',
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _text,
-                    maxLines: 6,
-                    minLines: 3,
-                    maxLength: 500,
-                    onChanged: (_) => setState(() {}),
-                    decoration: const InputDecoration(hintText: 'Yaz… #etiket ve @kullanıcı kullanabilirsin'),
-                  ),
-                ],
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+              child: TextField(
+                controller: _text,
+                autofocus: true,
+                maxLines: null,
+                minLines: 6,
+                maxLength: 500,
+                style: const TextStyle(fontSize: 18, height: 1.4),
+                onChanged: (_) => setState(() {}),
+                decoration: const InputDecoration(
+                  hintText: 'Aklından ne geçiyor?  #etiket ve @kullanıcı kullanabilirsin',
+                  border: InputBorder.none,
+                ),
               ),
             ),
           if (_mode != 2)
