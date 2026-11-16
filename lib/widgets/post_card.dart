@@ -317,20 +317,55 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
           padding: const EdgeInsets.fromLTRB(4, 2, 4, 0),
           child: Row(
             children: [
-              IconButton(
-                icon: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 200),
-                  transitionBuilder: (c, a) => ScaleTransition(scale: a, child: c),
-                  child: Icon(
-                    _liked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                    key: ValueKey(_liked),
-                    color: _liked ? FColors.like : null,
-                    size: 27,
+              // Beğeni: ikon + sayı yan yana
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => _toggleLike(),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(8, 8, 4, 8),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 200),
+                        transitionBuilder: (c, a) => ScaleTransition(scale: a, child: c),
+                        child: Icon(
+                          _liked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                          key: ValueKey(_liked),
+                          color: _liked ? FColors.like : null,
+                          size: 27,
+                        ),
+                      ),
+                      if (_likes > 0)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 6),
+                          child: Text(compactCount(_likes),
+                              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                        ),
+                    ],
                   ),
                 ),
-                onPressed: () => _toggleLike(),
               ),
-              IconButton(icon: const Icon(Icons.mode_comment_outlined, size: 25), onPressed: _openComments),
+              // Yorum: ikon + sayı yan yana
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: _openComments,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(10, 8, 4, 8),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.mode_comment_outlined, size: 25),
+                      if (_p.commentCount > 0)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 6),
+                          child: Text(compactCount(_p.commentCount),
+                              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
               IconButton(icon: const Icon(Icons.send_outlined, size: 24), onPressed: () => sharePostSheet(context, _p)),
               const Spacer(),
               IconButton(
@@ -348,11 +383,9 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (_likes > 0)
-                Text('${compactCount(_likes)} beğenme', style: const TextStyle(fontWeight: FontWeight.w700)),
               if (_p.caption.isNotEmpty && _p.type != 'text')
                 Padding(
-                  padding: const EdgeInsets.only(top: 4),
+                  padding: const EdgeInsets.only(top: 2),
                   child: RichCaption(
                     prefix: _p.username,
                     onPrefix: () => openProfile(context, _p.uid),
@@ -366,20 +399,11 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
                   onTap: _openComments,
                   child: Padding(
                     padding: const EdgeInsets.only(top: 4),
-                    child: Text('${_p.commentCount} yorumun tümünü gör',
+                    child: Text(
+                        _p.commentCount == 1
+                            ? 'Yorumu gör'
+                            : '${compactCount(_p.commentCount)} yorumun tümünü gör',
                         style: TextStyle(color: theme.hintColor)),
-                  ),
-                ),
-              if (_p.comments.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 2),
-                  child: RichCaption(
-                    prefix: _p.comments.last.username,
-                    onPrefix: () => openProfileByUsername(context, _p.comments.last.username),
-                    text: _p.comments.last.text,
-                    trimAt: 80,
-                    onHashtag: (t) => openHashtag(context, t),
-                    onMention: (u) => openProfileByUsername(context, u),
                   ),
                 ),
               if (_p.edited)
