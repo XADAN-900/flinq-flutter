@@ -217,6 +217,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
 
+    // Profil grid'inde yalnızca fotoğraf ve videolar yer alır; Fly (metin) gönderileri burada gösterilmez.
+    final gridPosts = (_posts ?? const <Post>[]).where((p) => p.type != 'text').toList();
     final postsTab = blocked
         ? const EmptyState(
             icon: Icons.block_rounded,
@@ -225,13 +227,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
           )
         : _posts == null
         ? const Center(child: CircularProgressIndicator())
-        : _posts!.isEmpty
+        : gridPosts.isEmpty
             ? EmptyState(
                 icon: Icons.photo_camera_outlined,
                 title: mine ? 'İlk gönderini paylaş' : 'Henüz gönderi yok',
                 subtitle: mine ? 'Paylaştığın fotoğraf ve videolar burada görünür.' : null,
               )
-            : PostGrid(posts: _posts!);
+            : PostGrid(posts: gridPosts);
 
     final tabs = <Widget>[
       const Tab(icon: Icon(Icons.grid_on_rounded)),

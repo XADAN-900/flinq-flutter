@@ -375,8 +375,11 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
                   padding: const EdgeInsets.only(top: 2),
                   child: RichCaption(
                     prefix: _p.comments.last.username,
+                    onPrefix: () => openProfileByUsername(context, _p.comments.last.username),
                     text: _p.comments.last.text,
                     trimAt: 80,
+                    onHashtag: (t) => openHashtag(context, t),
+                    onMention: (u) => openProfileByUsername(context, u),
                   ),
                 ),
               if (_p.edited)
