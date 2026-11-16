@@ -8,7 +8,7 @@ import '../core/theme.dart';
 import '../core/utils.dart';
 import '../services/app_state.dart';
 import '../widgets/common.dart';
-import '../widgets/feed_video.dart';
+import '../widgets/preview_video.dart';
 import 'story_viewer.dart';
 
 class CreatePostScreen extends StatefulWidget {
@@ -25,6 +25,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   Uint8List? _image;
   String? _videoData;
   int _videoSize = 0;
+  String? _videoPath;
   final _caption = TextEditingController();
   final _text = TextEditingController();
   bool _busy = false;
@@ -50,6 +51,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     setState(() {
       _videoData = toDataUrl(b, mimeFromName(x.name).startsWith('video/') ? mimeFromName(x.name) : 'video/mp4');
       _videoSize = len;
+      _videoPath = x.path;
     });
   }
 
@@ -145,7 +147,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             if (_videoData != null)
               Column(
                 children: [
-                  FeedVideo(dataUrl: _videoData!, autoplay: true, muted: false),
+                  SizedBox(height: 380, child: ClipRRect(borderRadius: BorderRadius.circular(16), child: PreviewVideo(key: ValueKey(_videoPath), path: _videoPath!))),
                   Padding(
                     padding: const EdgeInsets.all(8),
                     child: Row(
