@@ -5,25 +5,25 @@
     "users": {
       ".read": "auth != null",
       "$uid": {
-        ".write": "(auth != null && auth.uid === $uid) || (auth != null && (auth.token.email === 'admin@panel.xadan.app' || root.child('admins').child(auth.uid).exists()))"
+        ".write": "(auth != null && auth.uid === $uid) || (auth != null && ((auth.token.email === 'admin@panel.xadan.app' || auth.token.panelAdmin === true) || root.child('admins').child(auth.uid).exists()))"
       }
     },
     "usernames": {
       ".read": true,
       "$n": {
-        ".write": "(auth != null && (!data.exists() || data.child('uid').val() === auth.uid) && (!newData.exists() || newData.child('uid').val() === auth.uid)) || (auth != null && (auth.token.email === 'admin@panel.xadan.app' || root.child('admins').child(auth.uid).exists()))"
+        ".write": "(auth != null && (!data.exists() || data.child('uid').val() === auth.uid) && (!newData.exists() || newData.child('uid').val() === auth.uid)) || (auth != null && ((auth.token.email === 'admin@panel.xadan.app' || auth.token.panelAdmin === true) || root.child('admins').child(auth.uid).exists()))"
       }
     },
     "emails": {
       "$n": {
         ".read": true,
-        ".write": "(auth != null && (root.child('usernames').child($n).child('uid').val() === auth.uid || newData.parent().parent().child('usernames').child($n).child('uid').val() === auth.uid)) || (auth != null && (auth.token.email === 'admin@panel.xadan.app' || root.child('admins').child(auth.uid).exists()))"
+        ".write": "(auth != null && (root.child('usernames').child($n).child('uid').val() === auth.uid || newData.parent().parent().child('usernames').child($n).child('uid').val() === auth.uid)) || (auth != null && ((auth.token.email === 'admin@panel.xadan.app' || auth.token.panelAdmin === true) || root.child('admins').child(auth.uid).exists()))"
       }
     },
     "posts": {
       ".read": "auth != null",
       "$pid": {
-        ".write": "(auth != null && (data.exists() ? data.child('uid').val() === auth.uid : newData.child('uid').val() === auth.uid)) || (auth != null && (auth.token.email === 'admin@panel.xadan.app' || root.child('admins').child(auth.uid).exists()))",
+        ".write": "(auth != null && (data.exists() ? data.child('uid').val() === auth.uid : newData.child('uid').val() === auth.uid)) || (auth != null && ((auth.token.email === 'admin@panel.xadan.app' || auth.token.panelAdmin === true) || root.child('admins').child(auth.uid).exists()))",
         "likes": {
           ".write": "auth != null",
           ".validate": "newData.isNumber() && newData.val() >= 0"
@@ -35,7 +35,7 @@
         },
         "comments": {
           "$cid": {
-            ".write": "(auth != null && (data.exists() ? (data.child('uid').val() === auth.uid || root.child('posts').child($pid).child('uid').val() === auth.uid) : newData.child('uid').val() === auth.uid)) || (auth != null && (auth.token.email === 'admin@panel.xadan.app' || root.child('admins').child(auth.uid).exists()))",
+            ".write": "(auth != null && (data.exists() ? (data.child('uid').val() === auth.uid || root.child('posts').child($pid).child('uid').val() === auth.uid) : newData.child('uid').val() === auth.uid)) || (auth != null && ((auth.token.email === 'admin@panel.xadan.app' || auth.token.panelAdmin === true) || root.child('admins').child(auth.uid).exists()))",
             "likedBy": {
               "$u": {
                 ".write": "auth != null && auth.uid === $u"
@@ -43,7 +43,7 @@
             },
             "replies": {
               "$rid": {
-                ".write": "(auth != null && (data.exists() ? (data.child('uid').val() === auth.uid || root.child('posts').child($pid).child('uid').val() === auth.uid) : newData.child('uid').val() === auth.uid)) || (auth != null && (auth.token.email === 'admin@panel.xadan.app' || root.child('admins').child(auth.uid).exists()))"
+                ".write": "(auth != null && (data.exists() ? (data.child('uid').val() === auth.uid || root.child('posts').child($pid).child('uid').val() === auth.uid) : newData.child('uid').val() === auth.uid)) || (auth != null && ((auth.token.email === 'admin@panel.xadan.app' || auth.token.panelAdmin === true) || root.child('admins').child(auth.uid).exists()))"
               }
             }
           }
@@ -53,7 +53,7 @@
     "notifications": {
       "$uid": {
         ".read": "auth != null && auth.uid === $uid",
-        ".write": "(auth != null && auth.uid === $uid) || (auth != null && (auth.token.email === 'admin@panel.xadan.app' || root.child('admins').child(auth.uid).exists()))",
+        ".write": "(auth != null && auth.uid === $uid) || (auth != null && ((auth.token.email === 'admin@panel.xadan.app' || auth.token.panelAdmin === true) || root.child('admins').child(auth.uid).exists()))",
         "$nid": {
           ".write": "auth != null && !data.exists() && newData.child('from').val() === auth.uid"
         }
@@ -62,7 +62,7 @@
     "stories": {
       ".read": "auth != null",
       "$uid": {
-        ".write": "(auth != null && auth.uid === $uid) || (auth != null && (auth.token.email === 'admin@panel.xadan.app' || root.child('admins').child(auth.uid).exists()))",
+        ".write": "(auth != null && auth.uid === $uid) || (auth != null && ((auth.token.email === 'admin@panel.xadan.app' || auth.token.panelAdmin === true) || root.child('admins').child(auth.uid).exists()))",
         "$sid": {
           "viewers": {
             "$v": {
@@ -75,13 +75,13 @@
     "storyMedia": {
       ".read": "auth != null",
       "$uid": {
-        ".write": "(auth != null && auth.uid === $uid) || (auth != null && (auth.token.email === 'admin@panel.xadan.app' || root.child('admins').child(auth.uid).exists()))"
+        ".write": "(auth != null && auth.uid === $uid) || (auth != null && ((auth.token.email === 'admin@panel.xadan.app' || auth.token.panelAdmin === true) || root.child('admins').child(auth.uid).exists()))"
       }
     },
     "following": {
       ".read": "auth != null",
       "$uid": {
-        ".write": "(auth != null && auth.uid === $uid) || (auth != null && (auth.token.email === 'admin@panel.xadan.app' || root.child('admins').child(auth.uid).exists()))"
+        ".write": "(auth != null && auth.uid === $uid) || (auth != null && ((auth.token.email === 'admin@panel.xadan.app' || auth.token.panelAdmin === true) || root.child('admins').child(auth.uid).exists()))"
       }
     },
     "followers": {
@@ -103,7 +103,7 @@
     "chats": {
       "$chat": {
         ".read": "auth != null && ($chat.beginsWith(auth.uid + '_') || $chat.endsWith('_' + auth.uid))",
-        ".write": "(auth != null && ($chat.beginsWith(auth.uid + '_') || $chat.endsWith('_' + auth.uid)) && !root.child('users').child($chat.replace(auth.uid, '').replace('_', '')).child('blocked').child(auth.uid).exists()) || (auth != null && (auth.token.email === 'admin@panel.xadan.app' || root.child('admins').child(auth.uid).exists()))"
+        ".write": "(auth != null && ($chat.beginsWith(auth.uid + '_') || $chat.endsWith('_' + auth.uid)) && !root.child('users').child($chat.replace(auth.uid, '').replace('_', '')).child('blocked').child(auth.uid).exists()) || (auth != null && ((auth.token.email === 'admin@panel.xadan.app' || auth.token.panelAdmin === true) || root.child('admins').child(auth.uid).exists()))"
       }
     },
     "fcmTokens": {
@@ -113,10 +113,10 @@
       }
     },
     "crashReports": {
-      ".read": "(auth != null && (auth.token.email === 'admin@panel.xadan.app' || root.child('admins').child(auth.uid).exists()))",
-      ".write": "(auth != null && (auth.token.email === 'admin@panel.xadan.app' || root.child('admins').child(auth.uid).exists()))",
+      ".read": "(auth != null && ((auth.token.email === 'admin@panel.xadan.app' || auth.token.panelAdmin === true) || root.child('admins').child(auth.uid).exists()))",
+      ".write": "(auth != null && ((auth.token.email === 'admin@panel.xadan.app' || auth.token.panelAdmin === true) || root.child('admins').child(auth.uid).exists()))",
       "$r": {
-        ".write": "auth != null && (!data.exists() || (auth != null && (auth.token.email === 'admin@panel.xadan.app' || root.child('admins').child(auth.uid).exists())))"
+        ".write": "auth != null && (!data.exists() || (auth != null && ((auth.token.email === 'admin@panel.xadan.app' || auth.token.panelAdmin === true) || root.child('admins').child(auth.uid).exists())))"
       }
     },
     "admins": {
@@ -127,22 +127,22 @@
     },
     "bans": {
       ".read": "auth != null",
-      ".write": "(auth != null && (auth.token.email === 'admin@panel.xadan.app' || root.child('admins').child(auth.uid).exists()))"
+      ".write": "(auth != null && ((auth.token.email === 'admin@panel.xadan.app' || auth.token.panelAdmin === true) || root.child('admins').child(auth.uid).exists()))"
     },
     "announcements": {
       ".read": "auth != null",
-      ".write": "(auth != null && (auth.token.email === 'admin@panel.xadan.app' || root.child('admins').child(auth.uid).exists()))"
+      ".write": "(auth != null && ((auth.token.email === 'admin@panel.xadan.app' || auth.token.panelAdmin === true) || root.child('admins').child(auth.uid).exists()))"
     },
     "reports": {
-      ".read": "(auth != null && (auth.token.email === 'admin@panel.xadan.app' || root.child('admins').child(auth.uid).exists()))",
-      ".write": "(auth != null && (auth.token.email === 'admin@panel.xadan.app' || root.child('admins').child(auth.uid).exists()))",
+      ".read": "(auth != null && ((auth.token.email === 'admin@panel.xadan.app' || auth.token.panelAdmin === true) || root.child('admins').child(auth.uid).exists()))",
+      ".write": "(auth != null && ((auth.token.email === 'admin@panel.xadan.app' || auth.token.panelAdmin === true) || root.child('admins').child(auth.uid).exists()))",
       "$r": {
         ".write": "auth != null && !data.exists()"
       }
     },
     "panelVault": {
-      ".read": "auth != null && auth.token.email === 'admin@panel.xadan.app'",
-      ".write": "auth != null && auth.token.email === 'admin@panel.xadan.app'"
+      ".read": "auth != null && (auth.token.email === 'admin@panel.xadan.app' || auth.token.panelAdmin === true)",
+      ".write": "auth != null && (auth.token.email === 'admin@panel.xadan.app' || auth.token.panelAdmin === true)"
     }
   }
 }
