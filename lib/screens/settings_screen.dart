@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../core/strings.dart';
 import 'package:provider/provider.dart';
 
 import '../core/theme.dart';
@@ -53,6 +54,25 @@ class SettingsScreen extends StatelessWidget {
               ],
               selected: {app.themeMode},
               onSelectionChanged: (s) => app.setThemeMode(s.first),
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.translate_rounded),
+            title: Text(S.of(context).language),
+            subtitle: Text(S.langName(app.languageCode)),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: () => showModalBottomSheet(
+              context: context,
+              showDragHandle: true,
+              builder: (_) => SafeArea(
+                child: LanguagePicker(
+                  selected: app.languageCode,
+                  onSelected: (code) {
+                    app.setLanguage(code);
+                    Navigator.pop(context);
+                  },
+                ),
+              ),
             ),
           ),
           head('Videolar'),

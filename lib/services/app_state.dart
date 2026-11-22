@@ -26,6 +26,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     auth = FirebaseAuth.instanceFor(app: Firebase.app());
     final ti = prefs.getInt('themeMode') ?? 0;
     _themeMode = (ti >= 0 && ti < ThemeMode.values.length) ? ThemeMode.values[ti] : ThemeMode.system;
+    _lang = prefs.getString('lang');
     WidgetsBinding.instance.addObserver(this);
     NetStatus.instance.online.addListener(notifyListeners);
     NetStatus.instance.onBack.add(() {
@@ -66,6 +67,33 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   // ------------------------------------------------------------------
   ThemeMode _themeMode = ThemeMode.system;
   ThemeMode get themeMode => _themeMode;
+
+  // ---- Dil / çeviri ----
+  static const List<String> kLanguages = ['tr', 'en', 'fr', 'es', 'pt', 'ru', 'ar'];
+  String? _lang;
+
+  String get languageCode {
+    final l = _lang;
+    if (l != null && kLanguages.contains(l)) return l;
+    final dev = WidgetsBinding.instance.platformDispatcher.locale.languageCode;
+    return kLanguages.contains(dev) ? dev : 'tr';
+  }
+
+  bool get hasChosenLanguage => _lang != null;
+
+  Locale get locale => Locale(languageCode);
+
+  void setLanguage(String code) {
+    if (!kLanguages.contains(code)) return;
+    _lang = code;
+    prefs.setString('lang', code);
+    final id = uid;
+    if (id != null) {
+      db.ref('users/$id/settings/lang').set(code).catchError((_) {});
+    }
+    notifyListeners();
+  }
+
   void setThemeMode(ThemeMode m) {
     _themeMode = m;
     prefs.setInt('themeMode', m.index);

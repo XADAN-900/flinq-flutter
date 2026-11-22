@@ -11,6 +11,8 @@ import '../screens/dm_screens.dart';
 import '../screens/explore_screen.dart';
 import '../screens/profile_screen.dart';
 import '../services/app_state.dart';
+import '../services/translate.dart';
+import '../core/strings.dart';
 import 'report_sheet.dart';
 import 'common.dart';
 import 'feed_video.dart';
@@ -50,8 +52,31 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
   late bool _liked;
   late int _likes;
   bool _showHeart = false;
+  String? _tCaption; // çevrilmiş açıklama (null = orijinal gösteriliyor)
+  bool _tLoading = false;
   late final AnimationController _heart =
       AnimationController(vsync: this, duration: const Duration(milliseconds: 700));
+
+  Future<void> _toggleTranslateCaption() async {
+    if (_tCaption != null) {
+      setState(() => _tCaption = null);
+      return;
+    }
+    setState(() => _tLoading = true);
+    final target = context.read<AppState>().languageCode;
+    final r = await Translate.translate(_p.caption, target: target, source: 'auto');
+    if (!mounted) return;
+    setState(() => _tLoading = false);
+    if (r == null) {
+      showSnack(context, S(target).translateFailed);
+      return;
+    }
+    if (r['src'] == target || r['text']!.trim() == _p.caption.trim()) {
+      showSnack(context, S(target).get('alreadyYourLanguage'));
+      return;
+    }
+    setState(() => _tCaption = r['text']);
+  }
 
   @override
   void initState() {
@@ -389,9 +414,25 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
                   child: RichCaption(
                     prefix: _p.username,
                     onPrefix: () => openProfile(context, _p.uid),
-                    text: _p.caption,
+                    text: _tCaption ?? _p.caption,
                     onHashtag: (t) => openHashtag(context, t),
                     onMention: (u) => openProfileByUsername(context, u),
+                  ),
+                ),
+              if (_p.caption.isNotEmpty && _p.type != 'text')
+                GestureDetector(
+                  onTap: _tLoading ? null : _toggleTranslateCaption,
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 3),
+                    child: Text(
+                      _tLoading
+                          ? S.of(context).translating
+                          : (_tCaption != null
+                              ? S.of(context).showOriginal
+                              : S.of(context).translate),
+                      style: TextStyle(
+                          color: theme.hintColor, fontWeight: FontWeight.w600, fontSize: 13),
+                    ),
                   ),
                 ),
               if (_p.commentCount > 0)

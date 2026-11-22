@@ -13,6 +13,7 @@ import 'core/nav.dart';
 import 'core/theme.dart';
 import 'models/models.dart';
 import 'screens/auth_screen.dart';
+import 'screens/language_setup_screen.dart';
 import 'screens/home_screen.dart';
 import 'services/app_state.dart';
 import 'services/app_guard.dart';
@@ -133,8 +134,11 @@ class FlinQApp extends StatelessWidget {
           theme: AppTheme.light(),
           darkTheme: AppTheme.dark(),
           themeMode: app.themeMode,
-          locale: const Locale('tr', 'TR'),
-          supportedLocales: const [Locale('tr', 'TR'), Locale('en', 'US')],
+          locale: app.locale,
+          supportedLocales: const [
+            Locale('tr'), Locale('en'), Locale('fr'),
+            Locale('es'), Locale('pt'), Locale('ru'), Locale('ar'),
+          ],
           localizationsDelegates: const [
             GlobalMaterialLocalizations.delegate,
             GlobalWidgetsLocalizations.delegate,
@@ -163,17 +167,19 @@ class _Gate extends StatelessWidget {
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 350),
       child: app.loggedIn
-          ? AppGuard(
-              key: ValueKey('guard_${app.uid}'),
-              db: app.db,
-              uid: app.uid!,
-              repo: 'XADAN-900/flinq-flutter',
-              apkName: 'FlinQ.apk',
-              appName: 'FlinQ',
-              accent: const Color(0xFFFF3D71),
-              onLogout: app.logout,
-              child: HomeScreen(key: ValueKey(app.uid)),
-            )
+          ? (!app.hasChosenLanguage
+              ? const LanguageSetupScreen(key: ValueKey('langsetup'))
+              : AppGuard(
+                  key: ValueKey('guard_${app.uid}'),
+                  db: app.db,
+                  uid: app.uid!,
+                  repo: 'XADAN-900/flinq-flutter',
+                  apkName: 'FlinQ.apk',
+                  appName: 'FlinQ',
+                  accent: const Color(0xFFFF3D71),
+                  onLogout: app.logout,
+                  child: HomeScreen(key: ValueKey(app.uid)),
+                ))
           : const AuthScreen(key: ValueKey('auth')),
     );
   }
