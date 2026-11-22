@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flinq/core/i18n.dart';
 import 'package:provider/provider.dart';
 
 import '../core/utils.dart';
@@ -214,7 +215,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
           onChanged: (v) => setState(() => _query = v.trim()),
           textInputAction: TextInputAction.search,
           decoration: InputDecoration(
-            hintText: 'Kişi, #etiket veya Fly ara',
+            hintText: tr('Kişi, #etiket veya Fly ara'),
             isDense: true,
             prefixIcon: const Icon(Icons.search_rounded),
             suffixIcon: _query.isEmpty

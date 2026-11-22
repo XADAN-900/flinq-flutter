@@ -12,6 +12,7 @@ import 'core/firebase_config.dart';
 import 'core/nav.dart';
 import 'core/theme.dart';
 import 'models/models.dart';
+import 'core/i18n.dart';
 import 'screens/auth_screen.dart';
 import 'screens/language_setup_screen.dart';
 import 'screens/home_screen.dart';
@@ -48,6 +49,7 @@ Future<void> main() async {
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   final prefs = await SharedPreferences.getInstance();
   final app = AppState(prefs);
+  await I18n.I.init(prefs, app.languageCode);
   final dm = DmService(app);
   NotificationService.onTap = (payload) => _openFromNotification(app, payload);
   NativeBridge.init();
@@ -126,7 +128,11 @@ class FlinQApp extends StatelessWidget {
         ChangeNotifierProvider<DmService>.value(value: dm),
       ],
       child: Consumer<AppState>(
-        builder: (context, app, _) => MaterialApp(
+        builder: (context, app, _) {
+          I18n.I.lang = app.languageCode;
+          return AnimatedBuilder(
+            animation: I18n.I,
+            builder: (context, _) => MaterialApp(
           title: 'FlinQ',
           debugShowCheckedModeBanner: false,
           navigatorKey: navigatorKey,
@@ -145,7 +151,9 @@ class FlinQApp extends StatelessWidget {
             GlobalCupertinoLocalizations.delegate,
           ],
           home: const _Gate(),
-        ),
+            ),
+          );
+        },
       ),
     );
   }

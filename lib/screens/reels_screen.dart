@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flinq/core/i18n.dart';
 import 'package:provider/provider.dart';
 
 import '../core/theme.dart';
@@ -195,7 +196,7 @@ class _ReelState extends State<_Reel> {
                           padding: const EdgeInsets.symmetric(horizontal: 12),
                         ),
                         onPressed: () => app.toggleFollow(_p.uid),
-                        child: const Text('Takip et'),
+                        child: const T('Takip et'),
                       ),
                     ],
                   ],

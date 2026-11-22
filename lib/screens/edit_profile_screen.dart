@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flinq/core/i18n.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
@@ -36,16 +37,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           ListTile(
               leading: const Icon(Icons.photo_library_outlined),
-              title: const Text('Galeriden seç'),
+              title: const T('Galeriden seç'),
               onTap: () => Navigator.pop(ctx, 'gallery')),
           ListTile(
               leading: const Icon(Icons.photo_camera_outlined),
-              title: const Text('Fotoğraf çek'),
+              title: const T('Fotoğraf çek'),
               onTap: () => Navigator.pop(ctx, 'camera')),
           if ((app.me?.photo ?? '').isNotEmpty)
             ListTile(
               leading: const Icon(Icons.delete_outline, color: FColors.danger),
-              title: const Text('Fotoğrafı kaldır', style: TextStyle(color: FColors.danger)),
+              title: const T('Fotoğrafı kaldır', style: TextStyle(color: FColors.danger)),
               onTap: () => Navigator.pop(ctx, 'remove'),
             ),
         ]),
@@ -65,7 +66,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     if (x == null) return;
     final b = await x.readAsBytes();
     await app.updateProfile(photo: toDataUrl(b, 'image/jpeg'));
-    if (mounted) showSnack(context, 'Profil fotoğrafı güncellendi.');
+    if (mounted) showSnack(context, tr('Profil fotoğrafı güncellendi.'));
   }
 
   Future<void> _save() async {
@@ -81,7 +82,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     if (err != null) {
       showSnack(context, err, error: true);
     } else {
-      showSnack(context, 'Profil güncellendi.');
+      showSnack(context, tr('Profil güncellendi.'));
       Navigator.pop(context);
     }
   }
@@ -93,13 +94,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Profili düzenle'),
+        title: const T('Profili düzenle'),
         actions: [
           TextButton(
             onPressed: _busy ? null : _save,
             child: _busy
                 ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                : const Text('Bitti', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+                : const T('Bitti', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
           ),
         ],
       ),
@@ -108,10 +109,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         children: [
           Center(child: FAvatar(name: app.username, photo: app.me?.photo, size: 96)),
           Center(
-            child: TextButton(onPressed: _photo, child: const Text('Fotoğrafı düzenle')),
+            child: TextButton(onPressed: _photo, child: const T('Fotoğrafı düzenle')),
           ),
           const SizedBox(height: 8),
-          const Text('Kullanıcı adı', style: TextStyle(fontWeight: FontWeight.w700)),
+          const T('Kullanıcı adı', style: TextStyle(fontWeight: FontWeight.w700)),
           const SizedBox(height: 6),
           TextField(
             controller: _user,
@@ -126,19 +127,19 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             style: TextStyle(color: theme.hintColor, fontSize: 12),
           ),
           const SizedBox(height: 18),
-          const Text('Biyografi', style: TextStyle(fontWeight: FontWeight.w700)),
+          const T('Biyografi', style: TextStyle(fontWeight: FontWeight.w700)),
           const SizedBox(height: 6),
           TextField(
             controller: _bio,
             maxLines: 4,
             maxLength: 150,
-            decoration: const InputDecoration(hintText: 'Kendinden bahset… #etiket @kullanıcı'),
+            decoration: InputDecoration(hintText: tr('Kendinden bahset… #etiket @kullanıcı')),
           ),
           const SizedBox(height: 10),
           ListTile(
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.mail_outline_rounded),
-            title: const Text('E-posta'),
+            title: const T('E-posta'),
             subtitle: Text(app.user?.email ?? app.me?.email ?? ''),
           ),
         ],

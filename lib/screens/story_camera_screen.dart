@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flinq/core/i18n.dart';
 import 'dart:math' as math;
 
 import 'package:camera/camera.dart';
@@ -115,7 +116,7 @@ class _StoryCameraScreenState extends State<StoryCameraScreen> with WidgetsBindi
       final f = await c.takePicture();
       if (mounted) Navigator.pop(context, (f, false));
     } catch (_) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Fotoğraf çekilemedi.')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: T('Fotoğraf çekilemedi.')));
     } finally {
       _busy = false;
     }
@@ -135,7 +136,7 @@ class _StoryCameraScreenState extends State<StoryCameraScreen> with WidgetsBindi
         if (ms >= StoryCameraScreen.maxVideo.inMilliseconds) _stopVideo();
       });
     } catch (_) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Video başlatılamadı.')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: T('Video başlatılamadı.')));
     } finally {
       _busy = false;
     }
@@ -196,7 +197,7 @@ class _StoryCameraScreenState extends State<StoryCameraScreen> with WidgetsBindi
                   const SizedBox(height: 12),
                   Text(_error!, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white)),
                   const SizedBox(height: 16),
-                  FilledButton(onPressed: _systemCamera, child: const Text('Telefonun kamerasıyla çek')),
+                  FilledButton(onPressed: _systemCamera, child: const T('Telefonun kamerasıyla çek')),
                 ]),
               ),
             )

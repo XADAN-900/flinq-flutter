@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flinq/core/i18n.dart';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -69,7 +70,7 @@ class _InboxScreenState extends State<InboxScreen> {
             padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
             child: TextField(
               onChanged: (v) => setState(() => _q = v.trim()),
-              decoration: const InputDecoration(hintText: 'Ara', isDense: true, prefixIcon: Icon(Icons.search_rounded)),
+              decoration: InputDecoration(hintText: tr('Ara'), isDense: true, prefixIcon: Icon(Icons.search_rounded)),
             ),
           ),
           if (dm.error != null)
@@ -89,7 +90,7 @@ class _InboxScreenState extends State<InboxScreen> {
                             title: 'Mesajların',
                             subtitle: 'Arkadaşlarına özel fotoğraf ve mesaj gönder, gönderileri paylaş.',
                           ),
-                          FilledButton(onPressed: _newMessage, child: const Text('Mesaj gönder')),
+                          FilledButton(onPressed: _newMessage, child: const T('Mesaj gönder')),
                         ],
                       )
                     : ListView.builder(
@@ -200,7 +201,7 @@ class _UserPickerState extends State<_UserPicker> {
             child: TextField(
               autofocus: true,
               onChanged: (v) => setState(() => _q = v.trim()),
-              decoration: const InputDecoration(hintText: 'Ara…', isDense: true, prefixIcon: Icon(Icons.search_rounded)),
+              decoration: InputDecoration(hintText: tr('Ara…'), isDense: true, prefixIcon: Icon(Icons.search_rounded)),
             ),
           ),
           Expanded(
@@ -213,7 +214,7 @@ class _UserPickerState extends State<_UserPicker> {
                       return ListTile(
                         leading: FAvatar(name: u.username, photo: u.photo, size: 44),
                         title: UserName(u.username, verified: u.verified),
-                        subtitle: app.following.contains(u.uid) ? const Text('Takip ediyorsun') : null,
+                        subtitle: app.following.contains(u.uid) ? const T('Takip ediyorsun') : null,
                         onTap: () => Navigator.pop(context, u.uid),
                       );
                     },
@@ -280,7 +281,7 @@ class _SharePostSheetState extends State<_SharePostSheet> {
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
             child: TextField(
               onChanged: (v) => setState(() => _q = v.trim()),
-              decoration: const InputDecoration(hintText: 'Kime gönderilsin?', isDense: true, prefixIcon: Icon(Icons.search)),
+              decoration: InputDecoration(hintText: tr('Kime gönderilsin?'), isDense: true, prefixIcon: Icon(Icons.search)),
             ),
           ),
           Expanded(
@@ -327,7 +328,7 @@ class _SharePostSheetState extends State<_SharePostSheet> {
           const Divider(),
           ListTile(
             leading: const Icon(Icons.ios_share_rounded),
-            title: const Text('Başka uygulamada paylaş'),
+            title: const T('Başka uygulamada paylaş'),
             onTap: () {
               final p = widget.post;
               Navigator.pop(context);
@@ -514,7 +515,7 @@ class _DmChatScreenState extends State<DmChatScreen> with WidgetsBindingObserver
     final text = _input.text.trim();
     if (type == 'text' && text.isEmpty) return;
     if (_blockedMe || app.isBlocked(widget.otherUid)) {
-      showSnack(context, 'Bu kişiye mesaj gönderemezsin.', error: true);
+      showSnack(context, tr('Bu kişiye mesaj gönderemezsin.'), error: true);
       return;
     }
     if (type == 'text') _input.clear();
@@ -530,7 +531,7 @@ class _DmChatScreenState extends State<DmChatScreen> with WidgetsBindingObserver
     } catch (e) {
       if (type == 'text') _input.text = text;
       if (mounted) {
-        showSnack(context, 'Mesaj gönderilemedi. Veritabanı kurallarında "chats" yoluna izin olmalı.', error: true);
+        showSnack(context, tr('Mesaj gönderilemedi. Veritabanı kurallarında "chats" yoluna izin olmalı.'), error: true);
       }
     }
   }
@@ -543,7 +544,7 @@ class _DmChatScreenState extends State<DmChatScreen> with WidgetsBindingObserver
     final mt = x.mimeType ?? '';
     final isVideo = mt.startsWith('video/') || const ['.mp4', '.mov', '.webm', '.3gp', '.mkv', '.m4v'].any(n.endsWith);
     if (isVideo && await x.length() > _maxVideoBytes) {
-      if (mounted) showSnack(context, 'Video çok büyük (en fazla 15 MB).', error: true);
+      if (mounted) showSnack(context, tr('Video çok büyük (en fazla 15 MB).'), error: true);
       return;
     }
     setState(() => _sendingImage = true);
@@ -563,7 +564,7 @@ class _DmChatScreenState extends State<DmChatScreen> with WidgetsBindingObserver
     final rec = AudioRecorder();
     if (!await rec.hasPermission()) {
       rec.dispose();
-      if (mounted) showSnack(context, 'Mikrofon izni gerekli.', error: true);
+      if (mounted) showSnack(context, tr('Mikrofon izni gerekli.'), error: true);
       return;
     }
     final dir = await getTemporaryDirectory();
@@ -598,7 +599,7 @@ class _DmChatScreenState extends State<DmChatScreen> with WidgetsBindingObserver
     if (mounted) setState(() => _recording = false);
     if (!send || path == null) return;
     if (secs < 1) {
-      if (mounted) showSnack(context, 'Kayıt çok kısa. Basılı tutarak konuş.');
+      if (mounted) showSnack(context, tr('Kayıt çok kısa. Basılı tutarak konuş.'));
       return;
     }
     final f = File(path);
@@ -657,7 +658,7 @@ class _DmChatScreenState extends State<DmChatScreen> with WidgetsBindingObserver
           ),
           ListTile(
             leading: const Icon(Icons.reply_rounded),
-            title: const Text('Yanıtla'),
+            title: const T('Yanıtla'),
             onTap: () {
               Navigator.pop(ctx);
               setState(() => _replyTo = m);
@@ -666,17 +667,17 @@ class _DmChatScreenState extends State<DmChatScreen> with WidgetsBindingObserver
           if (m.type == 'text')
             ListTile(
               leading: const Icon(Icons.copy_rounded),
-              title: const Text('Kopyala'),
+              title: const T('Kopyala'),
               onTap: () {
                 Navigator.pop(ctx);
                 Clipboard.setData(ClipboardData(text: m.text));
-                showSnack(context, 'Kopyalandı');
+                showSnack(context, tr('Kopyalandı'));
               },
             ),
           if (mine)
             ListTile(
               leading: const Icon(Icons.undo_rounded, color: FColors.danger),
-              title: const Text('Gönderimi geri al', style: TextStyle(color: FColors.danger)),
+              title: const T('Gönderimi geri al', style: TextStyle(color: FColors.danger)),
               onTap: () {
                 Navigator.pop(ctx);
                 dm.unsend(chatId, m.id, wasLast: _msgs.isNotEmpty && _msgs.last.id == m.id, other: widget.otherUid);
@@ -797,7 +798,7 @@ class _DmChatScreenState extends State<DmChatScreen> with WidgetsBindingObserver
                           if (m.id == lastMineSeenId)
                             Padding(
                               padding: const EdgeInsets.only(top: 2, right: 4),
-                              child: Text('Görüldü', style: TextStyle(fontSize: 11.5, color: theme.hintColor)),
+                              child: T('Görüldü', style: TextStyle(fontSize: 11.5, color: theme.hintColor)),
                             ),
                         ],
                       );
@@ -826,7 +827,7 @@ class _DmChatScreenState extends State<DmChatScreen> with WidgetsBindingObserver
                   if (appW.isBlocked(widget.otherUid))
                     TextButton(
                       onPressed: () => app.setBlocked(widget.otherUid, false),
-                      child: const Text('Engeli kaldır'),
+                      child: const T('Engeli kaldır'),
                     ),
                 ]),
               ),
@@ -872,7 +873,7 @@ class _DmChatScreenState extends State<DmChatScreen> with WidgetsBindingObserver
                               style: const TextStyle(fontWeight: FontWeight.w700)),
                           const SizedBox(width: 8),
                           Expanded(
-                            child: Text('Bırakınca gönderilir',
+                            child: T('Bırakınca gönderilir',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(color: theme.hintColor)),
@@ -887,8 +888,8 @@ class _DmChatScreenState extends State<DmChatScreen> with WidgetsBindingObserver
                       minLines: 1,
                       maxLines: 5,
                       textCapitalization: TextCapitalization.sentences,
-                      decoration: const InputDecoration(
-                        hintText: 'Mesaj…',
+                      decoration: InputDecoration(
+                        hintText: tr('Mesaj…'),
                         filled: false,
                         border: InputBorder.none,
                         enabledBorder: InputBorder.none,
@@ -906,7 +907,7 @@ class _DmChatScreenState extends State<DmChatScreen> with WidgetsBindingObserver
                     GestureDetector(
                       onLongPressStart: (_) => _startRecording(),
                       onLongPressEnd: (_) => _stopRecording(send: true),
-                      onTap: () => showSnack(context, 'Sesli mesaj için mikrofona basılı tut.'),
+                      onTap: () => showSnack(context, tr('Sesli mesaj için mikrofona basılı tut.')),
                       child: Padding(
                         padding: const EdgeInsets.all(10),
                         child: Icon(_recording ? Icons.mic_rounded : Icons.mic_none_rounded,
@@ -921,7 +922,7 @@ class _DmChatScreenState extends State<DmChatScreen> with WidgetsBindingObserver
                   ] else
                     TextButton(
                       onPressed: () => _send(),
-                      child: const Text('Gönder', style: TextStyle(fontWeight: FontWeight.w800, color: FColors.accent)),
+                      child: const T('Gönder', style: TextStyle(fontWeight: FontWeight.w800, color: FColors.accent)),
                     ),
                 ],
               ),
@@ -1018,7 +1019,7 @@ class _DmChatScreenState extends State<DmChatScreen> with WidgetsBindingObserver
           const SizedBox(height: 12),
           OutlinedButton(
             onPressed: () => openProfile(context, widget.otherUid),
-            child: const Text('Profili gör'),
+            child: const T('Profili gör'),
           ),
         ],
       ),
@@ -1058,7 +1059,7 @@ class _DmChatScreenState extends State<DmChatScreen> with WidgetsBindingObserver
             child: const Column(mainAxisAlignment: MainAxisAlignment.center, children: [
               Icon(Icons.play_circle_fill_rounded, color: Colors.white, size: 56),
               SizedBox(height: 6),
-              Text('Video', style: TextStyle(color: Colors.white70)),
+              T('Video', style: TextStyle(color: Colors.white70)),
             ]),
           ),
         );
@@ -1113,7 +1114,7 @@ class _DmChatScreenState extends State<DmChatScreen> with WidgetsBindingObserver
                   color: dark ? FColors.darkCard : const Color(0xFFEFEFF2),
                   borderRadius: BorderRadius.circular(18),
                 ),
-                child: const Text('Bu gönderi artık yok'),
+                child: const T('Bu gönderi artık yok'),
               );
             }
             final author = app.cachedUser(p.uid);
@@ -1233,7 +1234,7 @@ class _DmVideoPageState extends State<_DmVideoPage> {
       appBar: AppBar(backgroundColor: Colors.black, foregroundColor: Colors.white),
       body: Center(
         child: _failed
-            ? const Text('Video açılamadı', style: TextStyle(color: Colors.white70))
+            ? const T('Video açılamadı', style: TextStyle(color: Colors.white70))
             : c == null
                 ? const CircularProgressIndicator(color: Colors.white)
                 : GestureDetector(

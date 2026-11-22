@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flinq/core/i18n.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -139,7 +140,7 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
           _liked = !_liked;
           _likes += _liked ? 1 : -1;
         });
-        showSnack(context, 'Beğeni kaydedilemedi.', error: true);
+        showSnack(context, tr('Beğeni kaydedilemedi.'), error: true);
       }
     }
   }
@@ -171,7 +172,7 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
             if (mine)
               ListTile(
                 leading: const Icon(Icons.edit_outlined),
-                title: const Text('Açıklamayı düzenle'),
+                title: const T('Açıklamayı düzenle'),
                 onTap: () async {
                   Navigator.pop(ctx);
                   final v = await promptText(context, title: 'Açıklama', initial: _p.caption, maxLines: 5);
@@ -184,11 +185,11 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
             if (_p.caption.isNotEmpty)
               ListTile(
                 leading: const Icon(Icons.copy_rounded),
-                title: const Text('Metni kopyala'),
+                title: const T('Metni kopyala'),
                 onTap: () {
                   Navigator.pop(ctx);
                   Clipboard.setData(ClipboardData(text: _p.caption));
-                  showSnack(context, 'Kopyalandı');
+                  showSnack(context, tr('Kopyalandı'));
                 },
               ),
             ListTile(
@@ -211,7 +212,7 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
             if (!mine)
               ListTile(
                 leading: const Icon(Icons.flag_outlined, color: FColors.danger),
-                title: const Text('Şikayet et', style: TextStyle(color: FColors.danger)),
+                title: const T('Şikayet et', style: TextStyle(color: FColors.danger)),
                 onTap: () async {
                   Navigator.pop(ctx);
                   final reason = await pickReportReason(context, title: 'Gönderiyi şikayet et');
@@ -219,13 +220,13 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
                   await app
                       .report(type: 'post', targetUid: _p.uid, path: 'posts/${_p.id}', preview: _p.caption, reason: reason)
                       .catchError((_) {});
-                  if (mounted) showSnack(context, 'Şikayetin yöneticiye iletildi. Teşekkürler.');
+                  if (mounted) showSnack(context, tr('Şikayetin yöneticiye iletildi. Teşekkürler.'));
                 },
               ),
             if (mine)
               ListTile(
                 leading: const Icon(Icons.delete_outline, color: FColors.danger),
-                title: const Text('Gönderiyi sil', style: TextStyle(color: FColors.danger)),
+                title: const T('Gönderiyi sil', style: TextStyle(color: FColors.danger)),
                 onTap: () async {
                   Navigator.pop(ctx);
                   final ok = await confirmDialog(context,
@@ -233,7 +234,7 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
                   if (!ok) return;
                   await app.deletePost(_p.id);
                   widget.onDeleted?.call();
-                  if (mounted) showSnack(context, 'Gönderi silindi.');
+                  if (mounted) showSnack(context, tr('Gönderi silindi.'));
                 },
               ),
           ],
@@ -315,7 +316,7 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
               if (_p.uid != app.uid && !app.following.contains(_p.uid))
                 TextButton(
                   onPressed: () => app.toggleFollow(_p.uid),
-                  child: const Text('Takip et', style: TextStyle(fontWeight: FontWeight.w700)),
+                  child: const T('Takip et', style: TextStyle(fontWeight: FontWeight.w700)),
                 ),
               IconButton(icon: const Icon(Icons.more_horiz_rounded), onPressed: _menu),
             ],
@@ -450,7 +451,7 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
               if (_p.edited)
                 Padding(
                   padding: const EdgeInsets.only(top: 2),
-                  child: Text('düzenlendi', style: TextStyle(fontSize: 11, color: theme.hintColor)),
+                  child: T('düzenlendi', style: TextStyle(fontSize: 11, color: theme.hintColor)),
                 ),
             ],
           ),

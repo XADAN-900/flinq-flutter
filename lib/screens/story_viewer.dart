@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flinq/core/i18n.dart';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -26,18 +27,18 @@ Future<void> addStoryFlow(BuildContext context) async {
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         const Padding(
           padding: EdgeInsets.only(bottom: 8),
-          child: Text('Hikaye ekle', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
+          child: T('Hikaye ekle', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
         ),
         ListTile(
           leading: const Icon(Icons.photo_camera_outlined),
-          title: const Text('Kamera'),
-          subtitle: const Text('Fotoğraf için dokun, video için basılı tut'),
+          title: const T('Kamera'),
+          subtitle: const T('Fotoğraf için dokun, video için basılı tut'),
           onTap: () => Navigator.pop(ctx, true),
         ),
         ListTile(
           leading: const Icon(Icons.photo_library_outlined),
-          title: const Text('Galeri'),
-          subtitle: const Text('Fotoğraflar ve videolar'),
+          title: const T('Galeri'),
+          subtitle: const T('Fotoğraflar ve videolar'),
           onTap: () => Navigator.pop(ctx, false),
         ),
       ]),
@@ -64,7 +65,7 @@ Future<void> addStoryFlow(BuildContext context) async {
   if (!context.mounted) return;
   if (isVideo && await x.length() > _maxStoryVideoBytes) {
     if (context.mounted) {
-      showSnack(context, 'Video çok büyük (en fazla 15 MB). Daha kısa bir video seç.', error: true);
+      showSnack(context, tr('Video çok büyük (en fazla 15 MB). Daha kısa bir video seç.'), error: true);
     }
     return;
   }
@@ -85,7 +86,7 @@ Future<void> addStoryFlow(BuildContext context) async {
                     : 'video/mp4';
   }
   if (!isVideo && bytes.length > 3 * 1024 * 1024) {
-    if (context.mounted) showSnack(context, 'Fotoğraf çok büyük.', error: true);
+    if (context.mounted) showSnack(context, tr('Fotoğraf çok büyük.'), error: true);
     return;
   }
   final dataUrl = toDataUrl(bytes, mime);
@@ -110,18 +111,18 @@ Future<void> addStoryFlow(BuildContext context) async {
                   : Image.memory(bytes, height: 300, fit: BoxFit.cover),
             ),
             const SizedBox(height: 10),
-            TextField(controller: c, decoration: const InputDecoration(hintText: 'Bir şey yaz… (isteğe bağlı)')),
+            TextField(controller: c, decoration: InputDecoration(hintText: tr('Bir şey yaz… (isteğe bağlı)'))),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Vazgeç')),
-          TextButton(onPressed: () => Navigator.pop(ctx, c.text.trim()), child: const Text('Paylaş')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const T('Vazgeç')),
+          TextButton(onPressed: () => Navigator.pop(ctx, c.text.trim()), child: const T('Paylaş')),
         ],
       );
     },
   );
   if (caption == null || !context.mounted) return;
-  if (isVideo) showSnack(context, 'Hikaye yükleniyor…');
+  if (isVideo) showSnack(context, tr('Hikaye yükleniyor…'));
   final err = await context
       .read<AppState>()
       .addStory(dataUrl, caption: caption, type: isVideo ? 'video' : 'image');
@@ -199,7 +200,7 @@ class _StoryVideoState extends State<_StoryVideo> {
   Widget build(BuildContext context) {
     final c = _c;
     if (_failed) {
-      return const Center(child: Text('Video açılamadı', style: TextStyle(color: Colors.white70)));
+      return const Center(child: T('Video açılamadı', style: TextStyle(color: Colors.white70)));
     }
     if (c == null) {
       return const Center(child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.4));

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flinq/core/i18n.dart';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -89,7 +90,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: const Padding(
                   padding: EdgeInsets.symmetric(vertical: 5),
                   child: Center(
-                    child: Text('İnternet yok',
+                    child: T('İnternet yok',
                         style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
                   ),
                 ),
@@ -266,14 +267,14 @@ class FeedScreenState extends State<FeedScreen> {
                 child: Row(
                   children: [
                     ChoiceChip(
-                      label: const Text('Sana özel'),
+                      label: const T('Sana özel'),
                       selected: !_followingOnly,
                       showCheckmark: false,
                       onSelected: (_) => setState(() => _followingOnly = false),
                     ),
                     const SizedBox(width: 8),
                     ChoiceChip(
-                      label: const Text('Takip ettiklerin'),
+                      label: const T('Takip ettiklerin'),
                       selected: _followingOnly,
                       showCheckmark: false,
                       onSelected: (_) => setState(() => _followingOnly = true),
@@ -303,7 +304,7 @@ class FeedScreenState extends State<FeedScreen> {
                       padding: const EdgeInsets.all(24),
                       child: Center(
                         child: _end
-                            ? Text('Hepsi bu kadar ✨', style: TextStyle(color: Theme.of(context).hintColor))
+                            ? T('Hepsi bu kadar ✨', style: TextStyle(color: Theme.of(context).hintColor))
                             : const CircularProgressIndicator(strokeWidth: 2),
                       ),
                     );

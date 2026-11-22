@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flinq/core/i18n.dart';
 import '../core/strings.dart';
 import 'package:provider/provider.dart';
 
@@ -21,18 +22,18 @@ class SettingsScreen extends StatelessWidget {
           child: Text(t, style: TextStyle(color: theme.hintColor, fontWeight: FontWeight.w700, fontSize: 13)),
         );
     return Scaffold(
-      appBar: AppBar(title: const Text('Ayarlar')),
+      appBar: AppBar(title: const T('Ayarlar')),
       body: ListView(
         children: [
           head('Hesap'),
           ListTile(
             leading: const Icon(Icons.person_outline),
-            title: const Text('Profili düzenle'),
+            title: const T('Profili düzenle'),
             onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const EditProfileScreen())),
           ),
           ListTile(
             leading: const Icon(Icons.key_outlined),
-            title: const Text('Şifre sıfırlama bağlantısı gönder'),
+            title: const T('Şifre sıfırlama bağlantısı gönder'),
             subtitle: Text(app.user?.email ?? ''),
             onTap: () async {
               final email = app.user?.email;
@@ -48,9 +49,9 @@ class SettingsScreen extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: SegmentedButton<ThemeMode>(
               segments: const [
-                ButtonSegment(value: ThemeMode.system, label: Text('Sistem'), icon: Icon(Icons.brightness_auto)),
-                ButtonSegment(value: ThemeMode.light, label: Text('Açık'), icon: Icon(Icons.light_mode)),
-                ButtonSegment(value: ThemeMode.dark, label: Text('Koyu'), icon: Icon(Icons.dark_mode)),
+                ButtonSegment(value: ThemeMode.system, label: T('Sistem'), icon: Icon(Icons.brightness_auto)),
+                ButtonSegment(value: ThemeMode.light, label: T('Açık'), icon: Icon(Icons.light_mode)),
+                ButtonSegment(value: ThemeMode.dark, label: T('Koyu'), icon: Icon(Icons.dark_mode)),
               ],
               selected: {app.themeMode},
               onSelectionChanged: (s) => app.setThemeMode(s.first),
@@ -78,43 +79,43 @@ class SettingsScreen extends StatelessWidget {
           head('Videolar'),
           SwitchListTile(
             secondary: const Icon(Icons.play_circle_outline),
-            title: const Text('Videoları otomatik oynat'),
+            title: const T('Videoları otomatik oynat'),
             value: app.autoplay,
             onChanged: (v) => app.setPref('autoplay', v),
           ),
           SwitchListTile(
             secondary: const Icon(Icons.volume_off_outlined),
-            title: const Text('Akışta videolar sessiz başlasın'),
+            title: const T('Akışta videolar sessiz başlasın'),
             value: app.feedMuted,
             onChanged: (v) => app.setPref('feedMuted', v),
           ),
           head('Bildirimler'),
           SwitchListTile(
             secondary: const Icon(Icons.notifications_outlined),
-            title: const Text('Telefon bildirimleri'),
-            subtitle: const Text('Beğeni, yorum, takip, yanıt ve etiketler'),
+            title: const T('Telefon bildirimleri'),
+            subtitle: const T('Beğeni, yorum, takip, yanıt ve etiketler'),
             value: app.notifEnabled,
             onChanged: (v) => app.setPref('notifEnabled', v),
           ),
           SwitchListTile(
             secondary: const Icon(Icons.volume_up_outlined),
-            title: const Text('Bildirim sesi'),
+            title: const T('Bildirim sesi'),
             value: app.notifSound,
             onChanged: (v) => app.setPref('soundNotifications', v),
           ),
           SwitchListTile(
             secondary: const Icon(Icons.lock_outline),
-            title: const Text('Kilit ekranında içerik'),
+            title: const T('Kilit ekranında içerik'),
             value: app.notifPreview,
             onChanged: (v) => app.setPref('lockscreenPreview', v),
           ),
           ListTile(
             leading: const Icon(Icons.battery_saver_outlined),
-            title: const Text('Arka planda çalışma'),
-            subtitle: const Text('Pil kısıtlamasını kaldır; uygulama kapalıyken de bildirim gelsin'),
+            title: const T('Arka planda çalışma'),
+            subtitle: const T('Pil kısıtlamasını kaldır; uygulama kapalıyken de bildirim gelsin'),
             onTap: () async {
               if (await NativeBridge.isIgnoringBattery()) {
-                if (context.mounted) showSnack(context, 'Pil kısıtlaması zaten kapalı ✅');
+                if (context.mounted) showSnack(context, tr('Pil kısıtlaması zaten kapalı ✅'));
               } else {
                 await NativeBridge.requestIgnoreBattery();
               }
@@ -123,7 +124,7 @@ class SettingsScreen extends StatelessWidget {
           head('Gizlilik'),
           ListTile(
             leading: const Icon(Icons.block_rounded),
-            title: const Text('Engellenen hesaplar'),
+            title: const T('Engellenen hesaplar'),
             trailing: Text('${app.me?.blocked.length ?? 0}'),
             onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BlockedScreen())),
           ),
@@ -135,7 +136,7 @@ class SettingsScreen extends StatelessWidget {
           ),
           ListTile(
             leading: const Icon(Icons.logout_rounded, color: FColors.danger),
-            title: const Text('Çıkış yap', style: TextStyle(color: FColors.danger, fontWeight: FontWeight.w600)),
+            title: const T('Çıkış yap', style: TextStyle(color: FColors.danger, fontWeight: FontWeight.w600)),
             onTap: () async {
               final ok = await confirmDialog(context,
                   title: 'Çıkış yap', message: '@${app.username} hesabından çıkılsın mı?', confirmText: 'Çıkış yap', destructive: true);
@@ -146,8 +147,8 @@ class SettingsScreen extends StatelessWidget {
           ),
           ListTile(
             leading: const Icon(Icons.delete_forever_rounded, color: FColors.danger),
-            title: const Text('Hesabımı sil', style: TextStyle(color: FColors.danger, fontWeight: FontWeight.w600)),
-            subtitle: const Text('Gönderilerin, hikayelerin ve profilin kalıcı olarak silinir'),
+            title: const T('Hesabımı sil', style: TextStyle(color: FColors.danger, fontWeight: FontWeight.w600)),
+            subtitle: const T('Gönderilerin, hikayelerin ve profilin kalıcı olarak silinir'),
             onTap: () async {
               final ok = await confirmDialog(context,
                   title: 'Hesabını sil', message: 'Hesabın ve tüm gönderilerin kalıcı olarak silinecek. Bu işlem geri alınamaz.',
@@ -181,9 +182,9 @@ class BlockedScreen extends StatelessWidget {
     final ids = (app.me?.blocked ?? const <String>{}).toList();
     app.warmUsers(ids);
     return Scaffold(
-      appBar: AppBar(title: const Text('Engellenen hesaplar')),
+      appBar: AppBar(title: const T('Engellenen hesaplar')),
       body: ids.isEmpty
-          ? const Center(child: Text('Kimseyi engellemedin.'))
+          ? const Center(child: T('Kimseyi engellemedin.'))
           : ListView.builder(
               itemCount: ids.length,
               itemBuilder: (_, i) {
@@ -193,7 +194,7 @@ class BlockedScreen extends StatelessWidget {
                   title: Text(u?.username ?? '…'),
                   trailing: OutlinedButton(
                     onPressed: () => app.setBlocked(ids[i], false),
-                    child: const Text('Engeli kaldır'),
+                    child: const T('Engeli kaldır'),
                   ),
                 );
               },

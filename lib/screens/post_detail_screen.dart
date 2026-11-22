@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flinq/core/i18n.dart';
 import 'package:provider/provider.dart';
 
 import '../models/models.dart';
@@ -45,7 +46,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Gönderi')),
+      appBar: AppBar(title: const T('Gönderi')),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _post == null

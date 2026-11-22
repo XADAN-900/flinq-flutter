@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flinq/core/i18n.dart';
 import 'package:provider/provider.dart';
 
 import '../core/theme.dart';
@@ -76,7 +77,7 @@ class _CommentsSheetState extends State<CommentsSheet> {
       _input.clear();
       setState(() => _replyTo = null);
     } catch (_) {
-      if (mounted) showSnack(context, 'Yorum gönderilemedi.', error: true);
+      if (mounted) showSnack(context, tr('Yorum gönderilemedi.'), error: true);
     }
     if (mounted) setState(() => _sending = false);
   }
@@ -101,11 +102,11 @@ class _CommentsSheetState extends State<CommentsSheet> {
           if (snap.connectionState == ConnectionState.waiting && p == null) {
             return const Center(child: CircularProgressIndicator());
           }
-          if (p == null) return const Center(child: Text('Gönderi bulunamadı'));
+          if (p == null) return const Center(child: T('Gönderi bulunamadı'));
           app.warmUsers(p.comments.map((c) => c.uid));
           return Column(
             children: [
-              const Text('Yorumlar', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+              const T('Yorumlar', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
               const SizedBox(height: 8),
               const Divider(),
               Expanded(
@@ -257,7 +258,7 @@ class _CommentsSheetState extends State<CommentsSheet> {
                           )
                         : TextButton(
                             onPressed: () => _send(p),
-                            child: const Text('Paylaş', style: TextStyle(fontWeight: FontWeight.w800)),
+                            child: const T('Paylaş', style: TextStyle(fontWeight: FontWeight.w800)),
                           ),
                   ],
                 ),
@@ -330,7 +331,7 @@ class _CommentTile extends StatelessWidget {
                       const SizedBox(width: 6),
                       Text(timeAgo(timestamp), style: TextStyle(fontSize: 12, color: theme.hintColor)),
                       if (uid == post.uid)
-                        Text(' · Yazar', style: TextStyle(fontSize: 12, color: theme.hintColor)),
+                        T(' · Yazar', style: TextStyle(fontSize: 12, color: theme.hintColor)),
                     ],
                   ),
                   const SizedBox(height: 2),
@@ -344,7 +345,7 @@ class _CommentTile extends StatelessWidget {
                     children: [
                       GestureDetector(
                         onTap: onReply,
-                        child: Text('Yanıtla',
+                        child: T('Yanıtla',
                             style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: theme.hintColor)),
                       ),
                       if (onDelete != null) ...[
@@ -358,7 +359,7 @@ class _CommentTile extends StatelessWidget {
                                 destructive: true);
                             if (ok) onDelete!();
                           },
-                          child: Text('Sil',
+                          child: T('Sil',
                               style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: theme.hintColor)),
                         ),
                       ],

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flinq/core/i18n.dart';
 import 'package:provider/provider.dart';
 
 import '../core/theme.dart';
@@ -86,7 +87,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Bildirimler'),
+        title: const T('Bildirimler'),
         actions: [
           PopupMenuButton<String>(
             onSelected: (v) async {
@@ -99,8 +100,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               }
             },
             itemBuilder: (_) => const [
-              PopupMenuItem(value: 'read', child: Text('Tümünü okundu yap')),
-              PopupMenuItem(value: 'clear', child: Text('Tümünü temizle')),
+              PopupMenuItem(value: 'read', child: T('Tümünü okundu yap')),
+              PopupMenuItem(value: 'clear', child: T('Tümünü temizle')),
             ],
           ),
         ],

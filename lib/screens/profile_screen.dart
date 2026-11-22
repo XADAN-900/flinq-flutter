@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flinq/core/i18n.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -157,7 +158,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           if (!mine && _followsMe)
             Padding(
               padding: const EdgeInsets.only(top: 4),
-              child: Text('Seni takip ediyor', style: TextStyle(color: theme.hintColor, fontSize: 12.5)),
+              child: T('Seni takip ediyor', style: TextStyle(color: theme.hintColor, fontSize: 12.5)),
             ),
           const SizedBox(height: 12),
           Row(
@@ -292,7 +293,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     final reason = await pickReportReason(context, title: '@${u.username} şikayet et');
                     if (reason == null) return;
                     await app.report(type: 'user', targetUid: widget.uid, preview: u.bio, reason: reason).catchError((_) {});
-                    if (context.mounted) showSnack(context, 'Şikayetin yöneticiye iletildi. Teşekkürler.');
+                    if (context.mounted) showSnack(context, tr('Şikayetin yöneticiye iletildi. Teşekkürler.'));
                     return;
                   }
                   if (v != 'block') return;
@@ -309,7 +310,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   _load();
                 },
                 itemBuilder: (_) => [
-                  const PopupMenuItem(value: 'report', child: Text('Şikayet et')),
+                  const PopupMenuItem(value: 'report', child: T('Şikayet et')),
                   PopupMenuItem(value: 'block', child: Text(blocked ? 'Engeli kaldır' : 'Engelle')),
                 ],
               ),
@@ -460,7 +461,7 @@ class _FollowListScreenState extends State<FollowListScreen> {
                   padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
                   child: TextField(
                     onChanged: (v) => setState(() => _q = v.trim()),
-                    decoration: const InputDecoration(hintText: 'Ara', isDense: true, prefixIcon: Icon(Icons.search)),
+                    decoration: InputDecoration(hintText: tr('Ara'), isDense: true, prefixIcon: Icon(Icons.search)),
                   ),
                 ),
                 Expanded(

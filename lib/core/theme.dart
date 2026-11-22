@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flinq/core/i18n.dart';
 import 'package:flutter/services.dart';
 
 class FColors {
@@ -103,7 +104,7 @@ Future<bool> confirmDialog(
       title: Text(title),
       content: Text(message),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Vazgeç')),
+        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const T('Vazgeç')),
         TextButton(
           onPressed: () => Navigator.pop(ctx, true),
           child: Text(confirmText,
@@ -138,7 +139,7 @@ Future<String?> promptText(
         decoration: InputDecoration(hintText: hint),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Vazgeç')),
+        TextButton(onPressed: () => Navigator.pop(ctx), child: const T('Vazgeç')),
         TextButton(onPressed: () => Navigator.pop(ctx, c.text), child: Text(confirmText)),
       ],
     ),

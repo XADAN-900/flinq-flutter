@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flinq/core/i18n.dart';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -99,14 +100,14 @@ class _LoginViewState extends State<_LoginView> {
                     style: TextStyle(fontSize: 44, fontWeight: FontWeight.w900, letterSpacing: -1.5)),
               ),
               const SizedBox(height: 4),
-              Text('Anlarını paylaş, keşfet.', textAlign: TextAlign.center, style: TextStyle(color: theme.hintColor)),
+              T('Anlarını paylaş, keşfet.', textAlign: TextAlign.center, style: TextStyle(color: theme.hintColor)),
               const SizedBox(height: 28),
               TextField(
                 controller: _id,
                 keyboardType: TextInputType.emailAddress,
                 textInputAction: TextInputAction.next,
-                decoration: const InputDecoration(
-                  hintText: 'E-posta veya kullanıcı adı',
+                decoration: InputDecoration(
+                  hintText: tr('E-posta veya kullanıcı adı'),
                   prefixIcon: Icon(Icons.person_outline_rounded),
                 ),
               ),
@@ -116,7 +117,7 @@ class _LoginViewState extends State<_LoginView> {
                 obscureText: _obscure,
                 onSubmitted: (_) => _submit(),
                 decoration: InputDecoration(
-                  hintText: 'Şifre',
+                  hintText: tr('Şifre'),
                   prefixIcon: const Icon(Icons.lock_outline_rounded),
                   suffixIcon: IconButton(
                     icon: Icon(_obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined),
@@ -126,7 +127,7 @@ class _LoginViewState extends State<_LoginView> {
               ),
               Align(
                 alignment: Alignment.centerRight,
-                child: TextButton(onPressed: _forgot, child: const Text('Şifreni mi unuttun?')),
+                child: TextButton(onPressed: _forgot, child: const T('Şifreni mi unuttun?')),
               ),
               if (_error != null) _Err(_error!),
               const SizedBox(height: 8),
@@ -135,7 +136,7 @@ class _LoginViewState extends State<_LoginView> {
               const Divider(),
               TextButton(
                 onPressed: _busy ? null : widget.onRegister,
-                child: const Text('Hesabın yok mu? Kaydol', style: TextStyle(fontWeight: FontWeight.w700)),
+                child: const T('Hesabın yok mu? Kaydol', style: TextStyle(fontWeight: FontWeight.w700)),
               ),
             ],
           ),
@@ -327,7 +328,7 @@ class _RegisterFlowState extends State<_RegisterFlow> {
                     controller: _user,
                     maxLength: 20,
                     decoration: InputDecoration(
-                      hintText: 'Kullanıcı adı',
+                      hintText: tr('Kullanıcı adı'),
                       prefixIcon: const Icon(Icons.alternate_email_rounded),
                       suffixIcon: suffix,
                       counterText: '',
@@ -348,7 +349,7 @@ class _RegisterFlowState extends State<_RegisterFlow> {
                   TextField(
                     controller: _email,
                     keyboardType: TextInputType.emailAddress,
-                    decoration: const InputDecoration(hintText: 'E-posta', prefixIcon: Icon(Icons.mail_outline_rounded)),
+                    decoration: InputDecoration(hintText: tr('E-posta'), prefixIcon: Icon(Icons.mail_outline_rounded)),
                   ),
                   const SizedBox(height: 12),
                   TextField(
@@ -356,7 +357,7 @@ class _RegisterFlowState extends State<_RegisterFlow> {
                     obscureText: _obscure,
                     onSubmitted: (_) => _next(),
                     decoration: InputDecoration(
-                      hintText: 'Şifre (en az 6 karakter)',
+                      hintText: tr('Şifre (en az 6 karakter)'),
                       prefixIcon: const Icon(Icons.lock_outline_rounded),
                       suffixIcon: IconButton(
                         icon: Icon(_obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined),
@@ -403,15 +404,15 @@ class _RegisterFlowState extends State<_RegisterFlow> {
                       TextButton.icon(
                         onPressed: () => _pick(ImageSource.gallery),
                         icon: const Icon(Icons.photo_library_outlined),
-                        label: const Text('Galeri'),
+                        label: const T('Galeri'),
                       ),
                       TextButton.icon(
                         onPressed: () => _pick(ImageSource.camera),
                         icon: const Icon(Icons.photo_camera_outlined),
-                        label: const Text('Kamera'),
+                        label: const T('Kamera'),
                       ),
                       if (_photo != null)
-                        TextButton(onPressed: () => setState(() => _photo = null), child: const Text('Kaldır')),
+                        TextButton(onPressed: () => setState(() => _photo = null), child: const T('Kaldır')),
                     ],
                   ),
                   const SizedBox(height: 12),
@@ -421,8 +422,8 @@ class _RegisterFlowState extends State<_RegisterFlow> {
                     maxLines: 3,
                     minLines: 2,
                     onChanged: (_) => setState(() {}),
-                    decoration: const InputDecoration(
-                      hintText: 'Biyografi — kendinden bahset, #etiket ekle',
+                    decoration: InputDecoration(
+                      hintText: tr('Biyografi — kendinden bahset, #etiket ekle'),
                       prefixIcon: Icon(Icons.edit_note_rounded),
                     ),
                   ),

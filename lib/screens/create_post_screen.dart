@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'package:flinq/core/i18n.dart';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -79,7 +80,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         await app.createPost(url: '', caption: _text.text.trim(), type: 'text');
       }
       if (!mounted) return;
-      showSnack(context, 'Paylaşıldı 🎉');
+      showSnack(context, tr('Paylaşıldı 🎉'));
       Navigator.pop(context, true);
     } catch (e) {
       if (mounted) {
@@ -95,13 +96,13 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(icon: const Icon(Icons.close_rounded), onPressed: () => Navigator.pop(context)),
-        title: const Text('Yeni gönderi'),
+        title: const T('Yeni gönderi'),
         actions: [
           TextButton(
             onPressed: _canShare && !_busy ? _share : null,
             child: _busy
                 ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                : const Text('Paylaş', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+                : const T('Paylaş', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
           ),
         ],
       ),
@@ -112,9 +113,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             padding: const EdgeInsets.all(12),
             child: SegmentedButton<int>(
               segments: const [
-                ButtonSegment(value: 0, icon: Icon(Icons.photo_outlined), label: Text('Fotoğraf')),
-                ButtonSegment(value: 1, icon: Icon(Icons.videocam_outlined), label: Text('Video')),
-                ButtonSegment(value: 2, icon: Icon(Icons.text_fields_rounded), label: Text('Fly')),
+                ButtonSegment(value: 0, icon: Icon(Icons.photo_outlined), label: T('Fotoğraf')),
+                ButtonSegment(value: 1, icon: Icon(Icons.videocam_outlined), label: T('Video')),
+                ButtonSegment(value: 2, icon: Icon(Icons.text_fields_rounded), label: T('Fly')),
               ],
               selected: {_mode},
               onSelectionChanged: (s) => setState(() => _mode = s.first),
@@ -157,7 +158,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                         TextButton.icon(
                           onPressed: () => setState(() => _videoData = null),
                           icon: const Icon(Icons.close_rounded),
-                          label: const Text('Kaldır'),
+                          label: const T('Kaldır'),
                         ),
                       ],
                     ),
@@ -183,8 +184,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                 maxLength: 500,
                 style: const TextStyle(fontSize: 18, height: 1.4),
                 onChanged: (_) => setState(() {}),
-                decoration: const InputDecoration(
-                  hintText: 'Aklından ne geçiyor?  #etiket ve @kullanıcı kullanabilirsin',
+                decoration: InputDecoration(
+                  hintText: tr('Aklından ne geçiyor?  #etiket ve @kullanıcı kullanabilirsin'),
                   border: InputBorder.none,
                 ),
               ),
@@ -197,14 +198,14 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                 maxLines: 5,
                 minLines: 2,
                 maxLength: 2200,
-                decoration: const InputDecoration(hintText: 'Açıklama yaz… #etiket @kullanıcı'),
+                decoration: InputDecoration(hintText: tr('Açıklama yaz… #etiket @kullanıcı')),
               ),
             ),
           const SizedBox(height: 8),
           ListTile(
             leading: const Icon(Icons.auto_awesome_outlined, color: FColors.accent),
-            title: const Text('Bunun yerine hikaye paylaş'),
-            subtitle: const Text('24 saat sonra kaybolur'),
+            title: const T('Bunun yerine hikaye paylaş'),
+            subtitle: const T('24 saat sonra kaybolur'),
             onTap: () async {
               await addStoryFlow(context);
               if (context.mounted) Navigator.pop(context, false);
@@ -243,13 +244,13 @@ class _Picker extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              FilledButton.icon(onPressed: onGallery, icon: const Icon(Icons.photo_library_outlined), label: const Text('Galeri')),
+              FilledButton.icon(onPressed: onGallery, icon: const Icon(Icons.photo_library_outlined), label: const T('Galeri')),
               const SizedBox(width: 10),
               OutlinedButton.icon(
                 onPressed: onCamera,
                 style: OutlinedButton.styleFrom(minimumSize: const Size(64, 46)),
                 icon: const Icon(Icons.photo_camera_outlined),
-                label: const Text('Kamera'),
+                label: const T('Kamera'),
               ),
             ],
           ),
