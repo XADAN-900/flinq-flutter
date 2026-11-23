@@ -94,6 +94,17 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
+  /// Otomatik (cihaz dili) moduna döner.
+  void clearLanguage() {
+    _lang = null;
+    prefs.remove('lang');
+    final id = uid;
+    if (id != null) {
+      db.ref('users/$id/settings/lang').remove().catchError((_) {});
+    }
+    notifyListeners();
+  }
+
   void setThemeMode(ThemeMode m) {
     _themeMode = m;
     prefs.setInt('themeMode', m.index);
