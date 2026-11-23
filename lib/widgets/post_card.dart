@@ -64,7 +64,7 @@ class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin
       return;
     }
     setState(() => _tLoading = true);
-    final target = context.read<AppState>().languageCode;
+    final target = context.read<AppState>().contentLang;
     final r = await Translate.translate(_p.caption, target: target, source: 'auto');
     if (!mounted) return;
     setState(() => _tLoading = false);

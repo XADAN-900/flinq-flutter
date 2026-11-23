@@ -81,6 +81,15 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
 
   bool get hasChosenLanguage => _lang != null;
 
+  /// İçerik çevirisi (post/mesaj) için hedef dil: cihazın gerçek dili,
+  /// 7 arayüz diliyle sınırlı DEĞİL (Almanca, Japonca, Çince… her dil olabilir).
+  String get contentLang {
+    final l = _lang;
+    if (l != null && kLanguages.contains(l)) return l;
+    final dev = WidgetsBinding.instance.platformDispatcher.locale.languageCode;
+    return dev.isNotEmpty ? dev : 'en';
+  }
+
   Locale get locale => Locale(languageCode);
 
   void setLanguage(String code) {
