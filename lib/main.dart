@@ -175,19 +175,17 @@ class _Gate extends StatelessWidget {
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 350),
       child: app.loggedIn
-          ? (!app.hasChosenLanguage
-              ? const LanguageSetupScreen(key: ValueKey('langsetup'))
-              : AppGuard(
-                  key: ValueKey('guard_${app.uid}'),
-                  db: app.db,
-                  uid: app.uid!,
-                  repo: 'XADAN-900/flinq-flutter',
-                  apkName: 'FlinQ.apk',
-                  appName: 'FlinQ',
-                  accent: const Color(0xFFFF3D71),
-                  onLogout: app.logout,
-                  child: HomeScreen(key: ValueKey(app.uid)),
-                ))
+          ? AppGuard(
+              key: ValueKey('guard_${app.uid}'),
+              db: app.db,
+              uid: app.uid!,
+              repo: 'XADAN-900/flinq-flutter',
+              apkName: 'FlinQ.apk',
+              appName: 'FlinQ',
+              accent: const Color(0xFFFF3D71),
+              onLogout: app.logout,
+              child: HomeScreen(key: ValueKey(app.uid)),
+            )
           : const AuthScreen(key: ValueKey('auth')),
     );
   }
